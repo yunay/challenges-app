@@ -1,0 +1,134 @@
+{
+  "common": {
+    "continue": "",
+    "cancel": "",
+    "back": "",
+    "next": "",
+    "done": "",
+    "save": "",
+    "loading": "",
+    "error": "",
+    "retry": ""
+  },
+  "welcome": {
+    "tagline": "",
+    "tagline_highlight": "",
+    "supporting": "",
+    "cta_get_started": "",
+    "cta_sign_in_prefix": "",
+    "cta_sign_in": "",
+    "trust_line": ""
+  },
+  "auth": {
+    "login_title": "",
+    "login_subtitle": "",
+    "register_title": "",
+    "register_subtitle": "",
+    "email": "",
+    "password": "",
+    "confirm_password": "",
+    "name": "",
+    "forgot_password": "",
+    "log_in": "",
+    "create_account": "",
+    "or": "",
+    "continue_with_apple": "",
+    "continue_with_google": "",
+    "no_account_prefix": "",
+    "no_account_cta": "",
+    "have_account_prefix": "",
+    "have_account_cta": "",
+    "privacy_note": "",
+    "errors": {
+      "email_invalid": "",
+      "password_too_short": "",
+      "passwords_dont_match": "",
+      "name_required": ""
+    }
+  },
+  "onboarding": {
+    "title": "",
+    "step": "",
+    "eyebrow": "",
+    "subhead": "",
+    "helper_select_one": "",
+    "helper_selected_count": "",
+    "goals": {
+      "health": "",
+      "health_desc": "",
+      "mental": "",
+      "mental_desc": "",
+      "productivity": "",
+      "productivity_desc": "",
+      "social": "",
+      "social_desc": "",
+      "finance": "",
+      "finance_desc": "",
+      "growth": "",
+      "growth_desc": ""
+    }
+  },
+  "home": {
+    "greeting_morning": "",
+    "greeting_afternoon": "",
+    "greeting_evening": "",
+    "streak": "",
+    "main_challenge": "",
+    "bonus_challenges": "",
+    "mark_done": "",
+    "completed_headline": "",
+    "completed_subline": "",
+    "points_earned": "",
+    "feedback_question": "",
+    "feedback": {
+      "easy": "",
+      "great": "",
+      "too_hard": "",
+      "not_applicable": ""
+    },
+    "meta": {
+      "minutes": "",
+      "easy": "",
+      "medium": "",
+      "hard": ""
+    }
+  },
+  "history": {
+    "title": "",
+    "current": "",
+    "longest": "",
+    "rate_30d": "",
+    "last_7_days": "",
+    "legend_done": "",
+    "legend_today": "",
+    "legend_skipped": ""
+  },
+  "profile": {
+    "title": "",
+    "member_since": "",
+    "streak": "",
+    "points": "",
+    "completion": "",
+    "this_week": "",
+    "n_of_m_done": "",
+    "preferences": "",
+    "goals": "",
+    "notification_time": "",
+    "language": "",
+    "plan": "",
+    "subscription": "",
+    "free_upgrade": ""
+  },
+  "categories": {
+    "health": "",
+    "mental": "",
+    "productivity": "",
+    "social": "",
+    "finance": ""
+  },
+  "tabs": {
+    "home": "",
+    "history": "",
+    "profile": ""
+  }
+}

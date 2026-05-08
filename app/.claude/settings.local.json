@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --yes create-expo-app@latest . --template expo-template-blank-typescript --no-install)",
+      "Bash(npx --yes create-expo-app@latest _scaffold --template expo-template-blank-typescript --no-install)",
+      "Bash(npx expo *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Read(//mnt/**)",
+      "Read(//c//**)",
+      "Read(//d//**)"
+    ]
+  }
+}

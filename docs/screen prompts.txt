@@ -1,0 +1,86 @@
+Ето ги — по един prompt на екран, в правилния ред за генерация:
+
+1. Onboarding — Welcome screen
+Design the welcome screen for Daily Challenges app.
+Full screen. App logo/wordmark centered. Tagline below: 
+"The only challenge app that actually learns from you."
+Two buttons: "Get started" (primary, amber) and "I already have an account" (ghost).
+Minimal, energetic. No illustration clutter.
+
+2. Onboarding — Survey (multi-step)
+Design the onboarding survey screen, step 2 of 5.
+Question: "What do you want to improve?"
+Multi-select chips/cards: Physical health, Mental health, 
+Productivity, Social life, Finances, Personal growth.
+Each option has a small icon. Selected state uses amber.
+Progress bar at top showing 2/5.
+"Continue" button at bottom, disabled until at least 1 selected.
+
+3. Home — Today's challenges
+Design the main home screen for Daily Challenges app.
+
+Top: greeting ("Good morning, Ivan"), date, streak pill with flame icon.
+
+Main challenge card (prominent): category tag, title, 
+1-sentence description, duration badge, points badge, 
+large "Mark as done" CTA button.
+
+Below: 2 compact bonus challenge cards side by side.
+
+Bottom: tab navigation — Home (active), History, Profile.
+Show both light and dark mode.
+
+4. Challenge — Completed state
+Design the "challenge completed" moment screen.
+Shown immediately after user taps "Mark as done".
+Celebratory but not over the top — no confetti explosion.
+Shows: points earned (+15 pts), updated streak count, 
+brief encouraging message.
+Optional: 3 feedback buttons below — "Too easy", 
+"Just right", "Too hard".
+Amber accent throughout. Auto-dismisses or has "Continue" button.
+
+5. History — Calendar view
+Design the challenge history screen.
+Monthly calendar grid. Each completed day has an amber dot/fill.
+Skipped days are empty. Today is highlighted.
+Below calendar: last 7 days list with challenge title, 
+category color, completion status.
+Streak stats at top: current streak, longest streak, 
+30-day completion rate.
+
+6. Profile screen
+Design the user profile screen.
+Top: avatar initials circle, name, member since date.
+Stats row: current streak, total points, completion rate — 3 metric cards.
+Weekly bar chart showing last 7 days activity (amber bars).
+Settings section below: Goals, Notification time, Language (EN/BG), 
+Subscription (Free / Upgrade to Pro).
+Clean list style, no heavy cards.
+
+
+7 Login and Register screen 
+Design Login and Register screens for Daily Challenges app.
+
+Auth options: Email + password, Continue with Google, Continue with Apple
+(Apple Sign-in is required by App Store guidelines)
+
+Login screen: email field, password field (with show/hide toggle), 
+"Forgot password?" link, primary CTA "Log in", 
+divider "or", social auth buttons, 
+link to Register at bottom.
+
+Register screen: same structure, add name field,
+password confirmation field, 
+brief privacy note below CTA.
+
+Must-avoid: heavy forms, unnecessary fields
+Tone: welcoming, minimal friction
+
+
+
+
+
+
+Реда на генерация има значение — започни с Home screen, защото той установява визуалния език. После Completed state (той е вариация на Home). После Profile и History. Onboarding последен, защото е най-различен стилово.
+След като имаш и шестте — поискай handoff bundle за Claude Code.
