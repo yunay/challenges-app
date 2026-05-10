@@ -8,7 +8,7 @@
 - NativeWind configured
 - Supabase client configured (EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_KEY)
 - All 6 DB tables created with RLS and CHECK constraints
-- Migrations: 001–009 applied in Supabase (007 = seed_first_day_challenges RPC; 008 = get_my_completion_rates RPC; 009 = get_completion_rate includes today when done)
+- Migrations applied in Supabase: 001–006, 008–011 (007 dropped via 010 — see below; 008 = get_my_completion_rates RPC; 009 = get_completion_rate includes today when done; 010 = drop seed_first_day_challenges RPC; 011 = cleanup orphan bonus rows)
 - challenge_bank seeded (20 rows: EN + BG)
 - Auth flow: register, login, session persistence
 - All screens created and wired: Welcome, Auth, Survey, Home, History, Profile
@@ -27,21 +27,29 @@
 - HomeScreen: completed state persists across reload (driven by mainChallenge.status === 'done')
 - HomeScreen: real user name (auth metadata → email-prefix fallback), streak (user_stats.current_streak via fetchStats), and locale-aware date eyebrow
 - challengeStore.fetchStats action + stats slice
-- Onboarding survey persists to user_profiles (goals + daily_time_minutes + preferred_time + language + timezone), flips onboarding_completed last, redirects to Home; inline errors + double-submit guard
-- First-day challenges seeded from challenge_bank on onboarding completion (no AI; language-matched, easy-only) via seed_first_day_challenges RPC (migration 007)
+- Onboarding survey persists to user_profiles (goals + daily_time_minutes + preferred_time + language + timezone), flips onboarding_completed last, redirects to Home; inline errors + double-submit guard. No first-day seed — new users land on Home with the "Challenge me!" hero.
 - Feedback buttons persist to challenges.feedback (all four values: easy/great/too_hard/not_applicable; validated, optimistic + rollback, hydrate from DB on cold start)
 - Profile screen wired to user_stats (streak, points, d30 completion %) + auth (name + email); i18n labels populated; loading shown as `—` placeholders
 - Completion rates computed on-the-fly via get_my_completion_rates RPC (migration 008); stored columns kept as advisory cache for the AI generator
 - get_completion_rate now includes today conditionally (today counts only when status='done'); migration 009
 - HistoryScreen wired to real data: stats from user_stats, calendar driven by challengeStore.fetchHistory(monthStart, monthEnd) with prev/next month nav, last-7-days list, and day-tap detail modal (built-in RN Modal). Locale-aware month name + weekday header.
+- Button-driven challenge generation ("Challenge me!" button) replaces cron-based generation for MVP. challengeStore.generateChallenge invokes the Edge Function; HomeScreen drives the pre-gen hero / skeleton / error / reveal states.
+- Edge Function `generate-challenge` (Deno; supabase/functions/generate-challenge) wraps the AI call. ANTHROPIC_API_KEY lives as a Supabase secret — never in the RN bundle. Idempotent against `challenges_one_main_per_day`; logs to generation_log.
+- Bonus challenges removed from MVP scope (DB schema + unique index retained for future reintroduction; orphan rows cleared by migration 011).
+- First-day seed flow removed (migration 007 dropped via 010); new users generate their first challenge via the button.
+- Polished reveal UX: light haptic on tap, animated skeleton placeholder, staged fade-in (category → title → description), success haptic on completion.
+- Offline vs generic generation errors with retry button.
+- HomeScreen cold-start flicker fixed via initialFetchComplete flag (no flash of "Challenge me!" button before fetched data renders).
 
 ### Known Issues
-- _none currently tracked_
+- Edge Function ANTHROPIC_API_KEY must be set as a Supabase secret before prod deployment: `supabase secrets set ANTHROPIC_API_KEY=sk-ant-…` followed by `supabase functions deploy generate-challenge` (run from `app/` so the CLI picks up `supabase/config.toml`). SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY are auto-injected by the platform. The function runs with `verify_jwt = false` (set in config.toml) and validates the JWT manually inside the handler — required so CORS preflights don't get rejected before reaching the function.
+- docs/AI_GENERATION.md is partially stale — its cron description no longer applies. Generation is now user-initiated via the Edge Function. Cleanup pass on that doc tracked separately.
 
 ### Next Steps
-- Push notifications (Expo + FCM)
+- Push notifications (Expo + FCM) — daily reminder if user hasn't generated today's challenge by 09:00 local.
+- Pro regenerate flow — paid users can regenerate today's challenge. TBD whether to UPDATE existing row or soft-delete + insert (decision deferred to Phase 1).
+- Re-introduce bonus challenges as a Phase 1 feature with separate generation trigger (likely after main completion).
 - Weekly chart on Profile — needs per-day completion API/aggregation
-- Cron job deployment for scheduler.ts
 
 ## Project Overview
 A mobile app (React Native + Expo) that delivers AI-generated personalized daily challenges.
@@ -97,18 +105,23 @@ daily-challenges/
 │   │   └── displayName.ts          # deriveDisplayName(email, metadata) — shared by Home + Profile
 │   ├── store/                      # Zustand
 │   │   ├── authStore.ts            # session, user, isLoading, onboardingCompleted; signIn/Up/Out
-│   │   └── challengeStore.ts       # fetchToday (with seen-count bump), markMainDone, setMainFeedback
+│   │   └── challengeStore.ts       # fetchToday (with seen-count bump), markMainDone, setMainFeedback, fetchStats, fetchHistory, generateChallenge (Edge Function)
 │   └── i18n/
 │       ├── index.ts                # i18next setup
 │       ├── en.json
 │       └── bg.json
 ├── server/                         # Fastify backend (planned)
 │   ├── routes/                     # (planned: challenges.ts, users.ts)
-│   ├── services/                   # (planned: challengeGenerator, scheduler, notifications)
+│   ├── services/                   # challengeGenerator (main-only), scheduler (currently unused — no cron)
 │   └── db/
-│       ├── migrations/             # 001..005 — see docs/DB_SCHEMA.md
+│       ├── migrations/             # 001..006, 008..011 (007 removed) — see docs/DB_SCHEMA.md
 │       └── seeds/
 │           └── challenge_bank_seed.sql
+├── supabase/                       # Supabase Edge Functions (Deno)
+│   └── functions/
+│       └── generate-challenge/     # Client-callable AI generation (replaces cron for MVP)
+│           ├── index.ts            # Auth + Anthropic call + idempotent insert + fallback
+│           └── README.md           # Deploy + secrets instructions
 ├── handoff/                        # Original web prototypes — design source of truth
 ├── docs/
 │   ├── PROJECT_PLAN.md
@@ -282,29 +295,25 @@ POSTHOG_API_KEY=
 ## Critical Business Rules
 
 ### Challenge generation
-- Runs as a **cron job at 02:00 every night** for the next day
-- 1 main challenge + 2 bonus challenges per user per day
-- **User selection:** every `user_profiles` row with `onboarding_completed = true` that does NOT already have a `challenges` row for tomorrow's date. This means:
-  - Users active daily → get a fresh challenge every night
-  - Users inactive for weeks → still get a challenge (cheap; row sits unread until they return)
-  - New users who just finished onboarding → get their first challenge on the next 02:00 run
-  - Re-running the cron on the same night is idempotent — users already covered are skipped
-  - Users still in onboarding → skipped (no profile data to personalize on)
+- **User-initiated** via the "Challenge me!" button on Home — no cron in MVP. The button calls the `generate-challenge` Supabase Edge Function which holds the Anthropic key as a secret.
+- **1 main challenge per user per day** (bonus deferred to post-MVP). Hard-blocked by the DB unique index `challenges_one_main_per_day`; the Edge Function also short-circuits when today's row already exists.
+- **Free tier:** no regenerate. Once a challenge is generated for the day, the button disappears and the existing card is shown until day rollover.
+- **Pro tier:** regenerate behavior deferred to Phase 1 (likely UPDATE in place vs soft-delete + insert).
 - Never repeats a challenge from the last **14 days**
 - Adapts difficulty based on D7 completion rate:
   - `rate < 0.5` → easy only
   - `rate 0.5–0.8` → easy + medium mix
   - `rate > 0.8` → include hard challenges
-- On generation failure → fallback to `challenge_bank` table
+- On generation failure → fallback to a single random easy row from `challenge_bank` matching the user's language + goal categories.
 
 ### Streak logic
 - Streak breaks if the main challenge is **not marked done by 23:59**
 - Grace period: 1 skip allowed per month (stored in `user_stats.grace_period_used_at`)
-- Bonus challenges do **not** affect the streak
+- Bonus challenges (post-MVP) will not affect the streak
 
 ### Points
 - Easy: 15 pts | Medium: 25 pts | Hard: 40 pts
-- Bonus challenges: 50% of main challenge points
+- Bonus challenges (post-MVP) will award 50% of main points
 - Streak bonus: +5 pts per day after a 7-day streak
 - Points are display-only in MVP — no real rewards yet
 
@@ -319,14 +328,14 @@ POSTHOG_API_KEY=
 2. **Challenge generation is critical path** — always wrap in try/catch with fallback
 3. **Never log** `SUPABASE_SERVICE_ROLE_KEY` or `ANTHROPIC_API_KEY`
 4. **Row Level Security is mandatory** — users must only access their own data
-5. **Anthropic API: Tier 1 — 50 req/min for Haiku.** Scheduler uses 1300ms sleep → ~46 req/min. At Tier 1: max ~2,700 users generated per hour. Upgrade to Tier 2 when active users exceed 2,000.
+5. **Anthropic API: Tier 1 — 50 req/min for Haiku.** With user-initiated generation (no cron), peak request rate is bounded by concurrent users, not a sweep. Tier 1 comfortably handles MVP load. The legacy scheduler.ts in server/services keeps the 1300ms sleep loop in case a scheduled job returns later.
 6. **Always validate AI JSON output** before writing to DB
 7. **Push notification limit** — strictly 2/day per user; exceeding risks uninstall
 8. **i18n is non-negotiable** — never hardcode user-facing strings
 
 ## Reference Documents
 - Full product roadmap: `docs/PROJECT_PLAN.md`
-- AI generation (prompts + architecture): `docs/AI_GENERATION.md`
+- AI generation (prompts + architecture): `docs/AI_GENERATION.md` — **partially stale**: cron description no longer applies; generation runs on-demand via the `generate-challenge` Edge Function. Prompt + difficulty rules still accurate.
 - Database schema: `docs/DB_SCHEMA.md`
 - Competitive analysis: `docs/COMPETITIVE_ANALYSIS.md`
 

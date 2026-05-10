@@ -1,0 +1,10 @@
+# Supabase project config — only the fields we actually need are set here.
+# Generated `supabase init` produces a much larger file; this minimal version
+# just declares per-function settings so deploys pick them up.
+
+[functions.generate-challenge]
+# We validate the JWT manually inside the handler (authClient.auth.getUser()),
+# so platform-level JWT verification has to be off. Otherwise Supabase rejects
+# the CORS preflight (browsers don't send Authorization on OPTIONS) before our
+# handler runs, and the browser surfaces it as a generic CORS failure.
+verify_jwt = false

@@ -24,6 +24,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
+import * as Haptics from 'expo-haptics';
 
 // ---------------------------------------------------------------------------
 // Theme tokens (mirror handoff/home-screen.jsx exactly)
@@ -381,73 +382,6 @@ function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-interface BonusCardProps {
-  category: Category;
-  title: string;
-  mins: number;
-  pts: number;
-  t: Theme;
-  onPress?: () => void;
-}
-
-const BonusCard = ({ category, title, mins, pts, t, onPress }: BonusCardProps): JSX.Element => {
-  const { color: catColor, bg: catBg } = categoryColors(category, t);
-  const catIcon = categoryIcon(category, catColor, 18);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flex: 1,
-        backgroundColor: t.surface,
-        borderRadius: 14,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: t.border,
-        gap: 10,
-        minHeight: 132,
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-      })}
-    >
-      <View
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          backgroundColor: catBg,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {catIcon}
-      </View>
-      <Text
-        style={{
-          flex: 1,
-          fontSize: 13,
-          fontWeight: '600',
-          color: t.fg1,
-          lineHeight: 18,
-          fontFamily: FONT_BODY_SEMI,
-        }}
-      >
-        {title}
-      </Text>
-      <Text
-        style={{
-          fontSize: 11,
-          color: t.fg3,
-          fontFamily: FONT_BODY_MEDIUM,
-          fontVariant: ['tabular-nums'],
-          fontWeight: '500',
-        }}
-      >
-        {mins} min · +{pts} pts
-      </Text>
-    </Pressable>
-  );
-};
-
 interface FeedbackButtonProps {
   label: string;
   icon: ReactElement<IconProps>;
@@ -774,6 +708,253 @@ const CompletedCard = ({ streak, points, feedback, setFeedback, feedbackError, t
 };
 
 // ---------------------------------------------------------------------------
+// Pre-generation hero — "Challenge me!" call-to-action
+// ---------------------------------------------------------------------------
+
+interface ChallengeMeHeroProps {
+  t: Theme;
+  disabled: boolean;
+  onPress: () => void;
+}
+
+const ChallengeMeHero = ({ t, disabled, onPress }: ChallengeMeHeroProps): JSX.Element => {
+  const { t: translate } = useTranslation();
+  return (
+    <View
+      style={{
+        backgroundColor: t.surface,
+        borderRadius: 16,
+        paddingVertical: 36,
+        paddingHorizontal: 24,
+        alignItems: 'center',
+        gap: 18,
+        borderWidth: 1,
+        borderColor: t.border,
+        ...shadow(t),
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: FONT_DISPLAY,
+          fontSize: 22,
+          fontWeight: '700',
+          color: t.fg1,
+          textAlign: 'center',
+          letterSpacing: -0.44,
+          lineHeight: 28,
+        }}
+      >
+        {translate('home.challenge_me_hook')}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        style={({ pressed }) => ({
+          paddingVertical: 16,
+          paddingHorizontal: 28,
+          backgroundColor: t.accent,
+          borderRadius: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          opacity: disabled ? 0.6 : pressed ? 0.94 : 1,
+          transform: [{ scale: pressed && !disabled ? 0.98 : 1 }],
+        })}
+      >
+        <SparkleIcon size={18} color={t.onAccent} sw={2.2} />
+        <Text
+          style={{
+            color: t.onAccent,
+            fontFamily: FONT_BODY_SEMI,
+            fontSize: 16,
+            fontWeight: '700',
+            letterSpacing: -0.16,
+          }}
+        >
+          {translate('home.challenge_me_button')}
+        </Text>
+      </Pressable>
+      <Text
+        style={{
+          fontSize: 13,
+          color: t.fg3,
+          textAlign: 'center',
+          fontFamily: FONT_BODY,
+          lineHeight: 19,
+        }}
+      >
+        {translate('home.challenge_me_subline')}
+      </Text>
+    </View>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Skeleton — placeholder while the Edge Function is in flight
+// ---------------------------------------------------------------------------
+
+interface SkeletonCardProps {
+  t: Theme;
+  // undefined → default "Generating something special…" (the generation flow).
+  // null → no caption (used for the cold-start loading shell, where the user
+  // isn't generating, just waiting on the initial fetch).
+  caption?: string | null;
+}
+
+const SkeletonCard = ({ t, caption }: SkeletonCardProps): JSX.Element => {
+  const { t: translate } = useTranslation();
+  const captionText = caption === undefined ? translate('home.generation.loading') : caption;
+  // Looped 0↔1 pulse driving the placeholder bars' opacity. Stops cleanly on
+  // unmount so the card can be replaced with the revealed challenge.
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 750, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 750, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return (): void => loop.stop();
+  }, [pulse]);
+  const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.85] });
+
+  const Bar = ({ width, height = 14, mb = 10 }: { width: number | string; height?: number; mb?: number }): JSX.Element => (
+    <Animated.View
+      style={{
+        width: width as ViewStyle['width'],
+        height,
+        borderRadius: 6,
+        backgroundColor: t.surface2,
+        marginBottom: mb,
+        opacity,
+      }}
+    />
+  );
+
+  return (
+    <View
+      style={{
+        backgroundColor: t.surface,
+        borderRadius: 16,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: t.border,
+        ...shadow(t),
+      }}
+    >
+      {/* Category badge placeholder */}
+      <Animated.View
+        style={{
+          width: 72,
+          height: 24,
+          borderRadius: 8,
+          backgroundColor: t.surface2,
+          marginBottom: 16,
+          opacity,
+        }}
+      />
+      {/* Title placeholder — two lines */}
+      <Bar width="92%" height={20} />
+      <Bar width="68%" height={20} mb={16} />
+      {/* Description placeholder — three lines */}
+      <Bar width="100%" />
+      <Bar width="96%" />
+      <Bar width="74%" mb={18} />
+      {/* Footer line */}
+      {captionText ? (
+        <Text
+          style={{
+            fontSize: 13,
+            color: t.fg3,
+            fontFamily: FONT_BODY_MEDIUM,
+            fontWeight: '500',
+            textAlign: 'center',
+          }}
+        >
+          {captionText}
+        </Text>
+      ) : null}
+    </View>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Generation error — friendly copy + retry
+// ---------------------------------------------------------------------------
+
+interface GenerationErrorCardProps {
+  t: Theme;
+  error: 'offline' | 'generic';
+  onRetry: () => void;
+  disabled: boolean;
+}
+
+const GenerationErrorCard = ({ t, error, onRetry, disabled }: GenerationErrorCardProps): JSX.Element => {
+  const { t: translate } = useTranslation();
+  const message = translate(
+    error === 'offline'
+      ? 'home.generation.error_offline'
+      : 'home.generation.error_generic',
+  );
+  return (
+    <View
+      style={{
+        backgroundColor: t.surface,
+        borderRadius: 16,
+        paddingVertical: 28,
+        paddingHorizontal: 22,
+        alignItems: 'center',
+        gap: 16,
+        borderWidth: 1,
+        borderColor: t.border,
+        ...shadow(t),
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 14,
+          color: t.fg2,
+          fontFamily: FONT_BODY,
+          textAlign: 'center',
+          lineHeight: 20,
+        }}
+      >
+        {message}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onRetry}
+        style={({ pressed }) => ({
+          paddingVertical: 12,
+          paddingHorizontal: 22,
+          backgroundColor: t.accent,
+          borderRadius: 10,
+          opacity: disabled ? 0.6 : pressed ? 0.94 : 1,
+          transform: [{ scale: pressed && !disabled ? 0.98 : 1 }],
+        })}
+      >
+        <Text
+          style={{
+            color: t.onAccent,
+            fontFamily: FONT_BODY_SEMI,
+            fontSize: 14,
+            fontWeight: '600',
+            letterSpacing: -0.07,
+          }}
+        >
+          {translate('home.generation.retry')}
+        </Text>
+      </Pressable>
+    </View>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // HomeScreen
 // ---------------------------------------------------------------------------
 
@@ -808,10 +989,20 @@ export interface HomeScreenProps {
   // Fired when the user picks a feedback chip on the completed card. Returns
   // a Promise so HomeScreen can roll back the optimistic state on DB failure.
   onFeedback?: (id: FeedbackId) => Promise<{ error: string | null }>;
-  // Today's main challenge. Null/undefined → render "preparing" empty state.
+  // Today's main challenge. Null/undefined → render the pre-generation hero
+  // ("Challenge me!" button) unless `generating` or `generationError` is set.
   mainChallenge?: HomeChallenge | null;
-  // Bonus challenges (max 2 rendered). Empty array hides the bonus section.
-  bonusChallenges?: HomeChallenge[];
+  // False until the first fetchToday() resolves. While false, render a quiet
+  // loading shell instead of the Challenge me! hero — `mainChallenge === null`
+  // alone can't disambiguate "haven't checked yet" from "no challenge today".
+  initialFetchComplete?: boolean;
+  // Edge Function call in flight — render the skeleton placeholder.
+  generating?: boolean;
+  // Last generation outcome. null = no error or recovered. The retry button
+  // re-runs `onGenerate`.
+  generationError?: 'offline' | 'generic' | null;
+  // Tapped "Challenge me!" or the retry button.
+  onGenerate?: () => void;
 }
 
 export default function HomeScreen({
@@ -823,7 +1014,10 @@ export default function HomeScreen({
   onMarkDone,
   onFeedback,
   mainChallenge,
-  bonusChallenges,
+  initialFetchComplete = false,
+  generating = false,
+  generationError = null,
+  onGenerate,
 }: HomeScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
   const { t: translate, i18n } = useTranslation();
@@ -852,6 +1046,47 @@ export default function HomeScreen({
     setOptimisticFeedback(null);
     setFeedbackError(null);
   }, [mainChallenge?.id]);
+
+  // Staged reveal animation. Drives three opacity interpolations:
+  //   category badge (0–33%), title (33–66%), description (66–100%).
+  // We only animate when a new challenge appears mid-session (null → set).
+  // On cold start where mainChallenge is already populated, snap to 1 to
+  // avoid a phantom fade-in on every navigation back to Home.
+  const revealAnim = useRef(new Animated.Value(mainChallenge ? 1 : 0)).current;
+  const isFirstRender = useRef(true);
+  const prevMainId = useRef<string | null>(mainChallenge?.id ?? null);
+  useEffect(() => {
+    const prev = prevMainId.current;
+    const curr = mainChallenge?.id ?? null;
+    if (isFirstRender.current) {
+      revealAnim.setValue(curr ? 1 : 0);
+      isFirstRender.current = false;
+    } else if (prev === null && curr !== null) {
+      // Fresh reveal: stage in over 600ms and fire the success haptic on
+      // completion (medium-weight to mark the moment without being jarring).
+      revealAnim.setValue(0);
+      Animated.timing(revealAnim, {
+        toValue: 1,
+        duration: 600,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(() => {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      });
+    } else {
+      revealAnim.setValue(curr ? 1 : 0);
+    }
+    prevMainId.current = curr;
+  }, [mainChallenge?.id, revealAnim]);
+
+  // Tap handler shared by the hero "Challenge me!" button and the error-state
+  // retry button. Disables itself while generating so a double-tap can't
+  // double-invoke the Edge Function.
+  const handleGenerate = (): void => {
+    if (generating) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onGenerate?.();
+  };
 
   // Wraps setOptimisticDone + setOptimisticFeedback so the existing call sites
   // stay one-liners while we also notify the route to persist.
@@ -935,30 +1170,32 @@ export default function HomeScreen({
 
         {/* Today's challenge */}
         <View style={{ marginBottom: 12 }}>
-          <Eyebrow t={t}>Today's challenge</Eyebrow>
+          <Eyebrow t={t}>{translate('home.main_challenge')}</Eyebrow>
         </View>
 
-        {!mainChallenge ? (
-          <View
-            style={{
-              backgroundColor: t.surface,
-              borderRadius: 16,
-              padding: 20,
-              marginBottom: 24,
-              ...shadow(t),
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: FONT_BODY,
-                fontSize: 14,
-                color: t.fg2,
-                lineHeight: 21,
-                textAlign: 'center',
-              }}
-            >
-              Your challenges are being prepared...
-            </Text>
+        {!initialFetchComplete && !mainChallenge && !generating ? (
+          // Cold-start loading shell. Without this branch, mainChallenge=null
+          // would render the Challenge me! hero before fetchToday resolves,
+          // briefly flashing the button even when today already has a row.
+          <View style={{ marginBottom: 24 }}>
+            <SkeletonCard t={t} caption={null} />
+          </View>
+        ) : generating && !mainChallenge ? (
+          <View style={{ marginBottom: 24 }}>
+            <SkeletonCard t={t} />
+          </View>
+        ) : !mainChallenge && generationError ? (
+          <View style={{ marginBottom: 24 }}>
+            <GenerationErrorCard
+              t={t}
+              error={generationError}
+              onRetry={handleGenerate}
+              disabled={generating}
+            />
+          </View>
+        ) : !mainChallenge ? (
+          <View style={{ marginBottom: 24 }}>
+            <ChallengeMeHero t={t} disabled={generating} onPress={handleGenerate} />
           </View>
         ) : done ? (
           <View style={{ marginBottom: 24 }}>
@@ -974,6 +1211,23 @@ export default function HomeScreen({
         ) : (
           (() => {
             const mainCats = categoryColors(mainChallenge.category, t);
+            // Stagger windows on the shared revealAnim. Cold-start renders
+            // collapse to revealAnim=1 so all three are fully opaque.
+            const categoryOpacity = revealAnim.interpolate({
+              inputRange: [0, 0.33],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            });
+            const titleOpacity = revealAnim.interpolate({
+              inputRange: [0.33, 0.66],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            });
+            const descOpacity = revealAnim.interpolate({
+              inputRange: [0.66, 1],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            });
             return (
               <View
                 style={{
@@ -984,12 +1238,13 @@ export default function HomeScreen({
                   ...shadow(t),
                 }}
               >
-                <View
+                <Animated.View
                   style={{
                     flexDirection: 'row',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     marginBottom: 14,
+                    opacity: categoryOpacity,
                   }}
                 >
                   <CategoryBadge
@@ -1012,9 +1267,9 @@ export default function HomeScreen({
                       +{mainChallenge.points} pts
                     </Text>
                   </View>
-                </View>
+                </Animated.View>
 
-                <Text
+                <Animated.Text
                   style={{
                     fontFamily: FONT_DISPLAY,
                     fontSize: 22,
@@ -1023,12 +1278,13 @@ export default function HomeScreen({
                     lineHeight: 28,
                     marginBottom: 10,
                     letterSpacing: -0.44,
+                    opacity: titleOpacity,
                   }}
                 >
                   {mainChallenge.title}
-                </Text>
+                </Animated.Text>
 
-                <Text
+                <Animated.Text
                   style={{
                     fontSize: 14,
                     color: t.fg2,
@@ -1036,12 +1292,21 @@ export default function HomeScreen({
                     marginBottom: 18,
                     fontFamily: FONT_BODY,
                     fontWeight: '400',
+                    opacity: descOpacity,
                   }}
                 >
                   {mainChallenge.description}
-                </Text>
+                </Animated.Text>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 18 }}>
+                <Animated.View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 16,
+                    marginBottom: 18,
+                    opacity: descOpacity,
+                  }}
+                >
                   <MetaPill icon={<ClockIcon color={t.fg3} />} t={t}>
                     {`${mainChallenge.duration_min} min`}
                   </MetaPill>
@@ -1049,36 +1314,17 @@ export default function HomeScreen({
                   <MetaPill icon={<SparkleIcon color={t.fg3} />} t={t}>
                     {titleCase(mainChallenge.difficulty)}
                   </MetaPill>
-                </View>
+                </Animated.View>
 
-                <PrimaryButton onPress={handleMarkDone} t={t}>
-                  Mark as done
-                </PrimaryButton>
+                <Animated.View style={{ opacity: descOpacity }}>
+                  <PrimaryButton onPress={handleMarkDone} t={t}>
+                    {translate('home.mark_done')}
+                  </PrimaryButton>
+                </Animated.View>
               </View>
             );
           })()
         )}
-
-        {/* Bonus */}
-        {bonusChallenges && bonusChallenges.length > 0 ? (
-          <>
-            <View style={{ marginBottom: 12 }}>
-              <Eyebrow t={t}>Bonus challenges</Eyebrow>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              {bonusChallenges.slice(0, 2).map((b) => (
-                <BonusCard
-                  key={b.id}
-                  category={b.category}
-                  title={b.title}
-                  mins={b.duration_min}
-                  pts={b.points}
-                  t={t}
-                />
-              ))}
-            </View>
-          </>
-        ) : null}
       </ScrollView>
 
       {/* Tab bar */}

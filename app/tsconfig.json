@@ -19,5 +19,5 @@
     "expo-env.d.ts",
     "nativewind-env.d.ts"
   ],
-  "exclude": ["node_modules", "_scaffold", "handoff", "server/node_modules"]
+  "exclude": ["node_modules", "_scaffold", "handoff", "server/node_modules", "supabase/functions"]
 }

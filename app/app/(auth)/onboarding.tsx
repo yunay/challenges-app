@@ -5,9 +5,6 @@ import { useTranslation } from 'react-i18next';
 import SurveyScreen, { type SurveyOptionId } from '@/components/screens/SurveyScreen';
 import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
-import { useChallengeStore } from '@/store/challengeStore';
-
-const SEED_TIMEOUT_MS = 3000;
 
 // Survey IDs differ from the values the DB expects (and from what the AI
 // generator + bonus categorisation use). Map at the seam so the rest of the
@@ -88,24 +85,8 @@ export default function OnboardingRoute(): JSX.Element {
 
     await refreshOnboardingStatus();
 
-    // Seed today's challenges from challenge_bank (migration 007). Best-effort:
-    // if the RPC errors or runs past the 3s budget, the empty state on Home
-    // covers the gap until the 02:00 cron picks the user up tomorrow.
-    const seedRpc = supabase.rpc('seed_first_day_challenges');
-    const seedTimeout = new Promise<'timeout'>((resolve) =>
-      setTimeout(() => resolve('timeout'), SEED_TIMEOUT_MS),
-    );
-    const seedResult = await Promise.race([seedRpc, seedTimeout]);
-    if (seedResult === 'timeout') {
-      console.warn('[seed_first_day_challenges] timed out');
-    } else if (seedResult.error) {
-      console.warn('[seed_first_day_challenges]', seedResult.error.message);
-    }
-
-    // Warm the store so HomeScreen's mount-time fetch sees the seeded rows
-    // (and the bump_challenges_seen RPC fires once, idempotently).
-    await useChallengeStore.getState().fetchToday();
-
+    // No first-day seed and no warm-up fetch: Home renders the
+    // "Challenge me!" hero, the user taps it to generate today's challenge.
     router.replace('/(tabs)');
   };
 

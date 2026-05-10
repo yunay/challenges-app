@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import {
   useChallengeStore,
   type ChallengeContent,
+  type GenerationError,
   type TodayChallenge,
 } from '@/store/challengeStore';
 import { deriveDisplayName } from '@/utils/displayName';
@@ -35,11 +36,17 @@ export default function HomeRoute(): JSX.Element {
   const markMainDone = useChallengeStore((s) => s.markMainDone);
   const setMainFeedback = useChallengeStore((s) => s.setMainFeedback);
   const fetchStats = useChallengeStore((s) => s.fetchStats);
+  const generateChallenge = useChallengeStore((s) => s.generateChallenge);
+  const generating = useChallengeStore((s) => s.generating);
+  const initialFetchComplete = useChallengeStore((s) => s.initialFetchComplete);
   const stats = useChallengeStore((s) => s.stats);
 
   const user = useAuthStore((s) => s.user);
 
   const [challenges, setChallenges] = useState<TodayChallenge[]>([]);
+  // Last generation error, surfaced to HomeScreen for the offline / generic
+  // copy. Cleared whenever the user retries (handled inside handleGenerate).
+  const [generationError, setGenerationError] = useState<GenerationError | null>(null);
 
   // Load today's rows + stats in parallel on mount. fetchToday also bumps
   // total_challenges_seen the first time the user opens the home tab today
@@ -54,14 +61,30 @@ export default function HomeRoute(): JSX.Element {
     });
   }, [fetchToday, fetchStats]);
 
+  // Bonus rows are no longer generated for MVP, but legacy rows in the DB
+  // (from prior testing) might still exist. Filter to main-only so the UI
+  // never shows a stray bonus.
   const main = challenges.find((c) => c.is_main);
-  const bonuses = challenges.filter((c) => !c.is_main);
-
   const mainChallenge: HomeChallenge | null = main ? toHomeChallenge(main) : null;
-  const bonusChallenges: HomeChallenge[] = bonuses.map(toHomeChallenge);
 
   const displayName = deriveDisplayName(user?.email, user?.user_metadata);
   const streak = stats?.current_streak ?? 0;
+
+  const handleGenerate = (): void => {
+    setGenerationError(null);
+    void generateChallenge().then((res) => {
+      if (!res.ok) {
+        setGenerationError(res.error);
+        return;
+      }
+      // generateChallenge already refreshed `fetchToday` internally; pull the
+      // latest snapshot into local state so the reveal animation triggers.
+      void fetchToday().then((toRes) => {
+        if (toRes.error) console.warn('[fetchToday]', toRes.error);
+        else setChallenges(toRes.data);
+      });
+    });
+  };
 
   return (
     <HomeScreen
@@ -70,7 +93,10 @@ export default function HomeRoute(): JSX.Element {
       streak={streak}
       active="home"
       mainChallenge={mainChallenge}
-      bonusChallenges={bonusChallenges}
+      initialFetchComplete={initialFetchComplete}
+      generating={generating}
+      generationError={generationError}
+      onGenerate={handleGenerate}
       onTab={(id): void => {
         if (id !== 'home') router.replace(TAB_ROUTES[id]);
       }}

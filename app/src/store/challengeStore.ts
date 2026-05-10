@@ -51,6 +51,12 @@ export interface FetchHistoryResult {
   error: string | null;
 }
 
+export type GenerationError = 'offline' | 'generic';
+
+export type GenerateChallengeResult =
+  | { ok: true }
+  | { ok: false; error: GenerationError };
+
 export interface UserStatsSnapshot {
   current_streak: number;
   longest_streak: number;
@@ -77,6 +83,17 @@ export interface FetchStatsResult {
 
 export interface ChallengeState {
   isPersisting: boolean;
+  // True between the moment the user taps "Challenge me!" and the Edge
+  // Function response. HomeScreen drives the skeleton + button-disabled
+  // state from this flag.
+  generating: boolean;
+
+  // Flips to true the first time fetchToday() resolves in this session,
+  // regardless of outcome. HomeScreen uses it to distinguish "we haven't
+  // checked yet" (render loading shell) from "we checked and there's no
+  // challenge today" (render Challenge me! hero) — both states have
+  // mainChallenge === null otherwise.
+  initialFetchComplete: boolean;
 
   // Latest user_stats snapshot. null = not yet fetched in this session.
   // Refetch via fetchStats() — the trigger on challenges.update keeps the
@@ -132,6 +149,20 @@ export interface ChallengeState {
    * keep your streak?" data, and the streak only tracks main challenges.
    */
   fetchHistory: (monthStart: Date, monthEnd: Date) => Promise<FetchHistoryResult>;
+
+  /**
+   * Invokes the `generate-challenge` Edge Function to produce today's main
+   * challenge for the signed-in user. On success the function refreshes
+   * `fetchToday` so the new row lands in the store and the UI re-renders.
+   *
+   * Errors collapse to two user-visible buckets:
+   *   - 'offline'  — network failure (TypeError from fetch). Caller shows
+   *                  the offline copy + retry button.
+   *   - 'generic'  — auth, validation, AI failure with no fallback row, or
+   *                  any other server-side error. Caller shows the generic
+   *                  retry copy.
+   */
+  generateChallenge: () => Promise<GenerateChallengeResult>;
 }
 
 function todayDateString(): string {
@@ -154,41 +185,50 @@ const VALID_FEEDBACK_VALUES: readonly ChallengeFeedback[] = [
   'not_applicable',
 ];
 
-export const useChallengeStore = create<ChallengeState>((set) => ({
+export const useChallengeStore = create<ChallengeState>((set, get) => ({
   isPersisting: false,
+  generating: false,
+  initialFetchComplete: false,
   stats: null,
   history: null,
   historyLoading: false,
 
   fetchToday: async (): Promise<FetchTodayResult> => {
-    const { data: userResp } = await supabase.auth.getUser();
-    const user = userResp.user;
-    if (!user) return { data: [], error: 'Not authenticated' };
+    try {
+      const { data: userResp } = await supabase.auth.getUser();
+      const user = userResp.user;
+      if (!user) return { data: [], error: 'Not authenticated' };
 
-    const today = todayDateString();
+      const today = todayDateString();
 
-    // Pull today's challenges. Main first so callers can render in order.
-    const { data: challenges, error } = await supabase
-      .from('challenges')
-      .select(
-        'id, title, description, category, difficulty, duration_min, points, is_main, status, feedback',
-      )
-      .eq('user_id', user.id)
-      .eq('date', today)
-      .order('is_main', { ascending: false });
+      // Pull today's challenges. Main first so callers can render in order.
+      const { data: challenges, error } = await supabase
+        .from('challenges')
+        .select(
+          'id, title, description, category, difficulty, duration_min, points, is_main, status, feedback',
+        )
+        .eq('user_id', user.id)
+        .eq('date', today)
+        .order('is_main', { ascending: false });
 
-    if (error) return { data: [], error: error.message };
+      if (error) return { data: [], error: error.message };
 
-    const rows = (challenges ?? []) as TodayChallenge[];
-    if (rows.length === 0) return { data: rows, error: null };
+      const rows = (challenges ?? []) as TodayChallenge[];
+      if (rows.length === 0) return { data: rows, error: null };
 
-    // Atomic, once-per-day bump. Idempotency lives in the RPC's WHERE clause
-    // (last_active IS NULL OR last_active < CURRENT_DATE), so concurrent calls
-    // from multiple devices can't double-count.
-    const { error: rpcErr } = await supabase.rpc('bump_challenges_seen', { n: rows.length });
-    if (rpcErr) return { data: rows, error: rpcErr.message };
+      // Atomic, once-per-day bump. Idempotency lives in the RPC's WHERE clause
+      // (last_active IS NULL OR last_active < CURRENT_DATE), so concurrent calls
+      // from multiple devices can't double-count.
+      const { error: rpcErr } = await supabase.rpc('bump_challenges_seen', { n: rows.length });
+      if (rpcErr) return { data: rows, error: rpcErr.message };
 
-    return { data: rows, error: null };
+      return { data: rows, error: null };
+    } finally {
+      // Flip on first completion regardless of outcome — HomeScreen needs to
+      // distinguish "never tried" from "tried and there's nothing today".
+      // Idempotent on subsequent calls; that's fine.
+      if (!get().initialFetchComplete) set({ initialFetchComplete: true });
+    }
   },
 
   markMainDone: async (content): Promise<PersistResult> => {
@@ -319,6 +359,47 @@ export const useChallengeStore = create<ChallengeState>((set) => ({
       },
     });
     return { error: null };
+  },
+
+  generateChallenge: async (): Promise<GenerateChallengeResult> => {
+    set({ generating: true });
+    try {
+      const today = todayDateString();
+      // supabase.functions.invoke wraps fetch — it surfaces network failures
+      // (no internet, DNS, TLS) as a thrown TypeError. The function itself
+      // never returns 'offline' — that's a client-side condition.
+      const { data, error } = await supabase.functions.invoke<{
+        ok: boolean;
+        error?: GenerationError;
+      }>('generate-challenge', {
+        body: { date: today },
+      });
+
+      if (error) {
+        // FunctionsFetchError is the offline path; everything else (HTTP
+        // errors, 5xx, etc.) is generic.
+        const isOffline =
+          error.name === 'FunctionsFetchError' ||
+          (error instanceof TypeError);
+        return { ok: false, error: isOffline ? 'offline' : 'generic' };
+      }
+      if (!data || data.ok !== true) {
+        return { ok: false, error: 'generic' };
+      }
+
+      // Refresh today's rows so the new challenge flows into the UI through
+      // the same path as fetchToday on cold start. Don't surface this error
+      // to the caller — generation succeeded; the worst case is a delayed
+      // render that the next fetchToday recovers.
+      const refresh = await get().fetchToday();
+      if (refresh.error) console.warn('[generateChallenge] refresh:', refresh.error);
+
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'offline' };
+    } finally {
+      set({ generating: false });
+    }
   },
 
   fetchHistory: async (monthStart, monthEnd): Promise<FetchHistoryResult> => {
