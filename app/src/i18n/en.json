@@ -66,13 +66,20 @@
       "finance_desc": "",
       "growth": "",
       "growth_desc": ""
+    },
+    "errors": {
+      "goals_required": "Pick at least one focus area to continue.",
+      "save_failed": "Couldn't save your answers. Check your connection and try again."
     }
   },
   "home": {
+    "greeting": "Good morning, {{name}}",
     "greeting_morning": "",
     "greeting_afternoon": "",
     "greeting_evening": "",
-    "streak": "",
+    "streak_count_one": "{{count}} day",
+    "streak_count_other": "{{count}} days",
+    "streak_label": "streak",
     "main_challenge": "",
     "bonus_challenges": "",
     "mark_done": "",
@@ -81,10 +88,10 @@
     "points_earned": "",
     "feedback_question": "",
     "feedback": {
-      "easy": "",
-      "great": "",
-      "too_hard": "",
-      "not_applicable": ""
+      "easy": "Too easy",
+      "great": "Just right",
+      "too_hard": "Too hard",
+      "not_applicable": "Not for me"
     },
     "meta": {
       "minutes": "",
@@ -94,37 +101,48 @@
     }
   },
   "history": {
-    "title": "",
-    "current": "",
-    "longest": "",
-    "rate_30d": "",
-    "last_7_days": "",
-    "legend_done": "",
-    "legend_today": "",
-    "legend_skipped": ""
+    "title": "History",
+    "current": "Current",
+    "longest": "Longest",
+    "rate_30d": "30-day rate",
+    "days_suffix": "days",
+    "last_7_days": "Last 7 days",
+    "empty": "No history yet",
+    "legend_done": "Done",
+    "legend_today": "Today",
+    "legend_skipped": "Skipped",
+    "modal": {
+      "close": "Close",
+      "status": {
+        "done": "Done",
+        "pending": "Pending",
+        "skipped": "Skipped"
+      }
+    }
   },
   "profile": {
-    "title": "",
-    "member_since": "",
-    "streak": "",
-    "points": "",
-    "completion": "",
-    "this_week": "",
-    "n_of_m_done": "",
-    "preferences": "",
-    "goals": "",
-    "notification_time": "",
-    "language": "",
-    "plan": "",
-    "subscription": "",
-    "free_upgrade": ""
+    "title": "Profile",
+    "member_since": "Member since {{date}}",
+    "streak": "Streak",
+    "days_suffix": "days",
+    "points": "Points",
+    "completion": "Completion",
+    "this_week": "This week",
+    "n_of_m_done": "{{done}} of {{total}} done",
+    "preferences": "Preferences",
+    "goals": "Goals",
+    "notification_time": "Notification time",
+    "language": "Language",
+    "plan": "Plan",
+    "subscription": "Subscription",
+    "free_upgrade": "Free · Upgrade"
   },
   "categories": {
-    "health": "",
-    "mental": "",
-    "productivity": "",
-    "social": "",
-    "finance": ""
+    "health": "Health",
+    "mental": "Mental",
+    "productivity": "Productivity",
+    "social": "Social",
+    "finance": "Finance"
   },
   "tabs": {
     "home": "",

@@ -8,7 +8,9 @@ server/db/migrations/
 ├── 001_initial_schema.sql       # Core tables + RLS
 ├── 002_streak_functions.sql     # Streak logic triggers
 ├── 003_challenge_bank.sql       # Fallback challenge bank
-└── 004_generation_log.sql       # AI cost tracking
+├── 004_generation_log.sql       # AI cost tracking
+├── 005_auth_user_trigger.sql    # Auto-create profile + stats on signup
+└── 006_bump_challenges_seen_rpc.sql  # Atomic once-per-day seen counter
 ```
 
 ---
@@ -36,8 +38,9 @@ CREATE TABLE user_profiles (
   -- Computed from days since created_at — update via cron or trigger
 
   -- Localisation
-  language              TEXT          NOT NULL DEFAULT 'en',
-  -- Values: 'en', 'bg' — drives AI generation language
+  language              TEXT          NOT NULL DEFAULT 'en'
+    CHECK (language IN ('en', 'bg')),
+  -- Drives AI generation language. Extend by dropping + re-adding the constraint.
   timezone              TEXT          NOT NULL DEFAULT 'Europe/London',
 
   onboarding_completed  BOOLEAN       NOT NULL DEFAULT FALSE,
@@ -76,11 +79,12 @@ CREATE TABLE challenges (
   proof_image_url TEXT          NULL,    -- Supabase Storage URL
   completed_at    TIMESTAMPTZ   NULL,
 
-  created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-
-  -- One main challenge per user per day
-  CONSTRAINT one_main_per_day UNIQUE (user_id, date, is_main) DEFERRABLE
+  created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
+
+-- One main challenge per user per day (bonus rows are unrestricted)
+CREATE UNIQUE INDEX challenges_one_main_per_day
+  ON challenges (user_id, date) WHERE is_main = TRUE;
 
 CREATE INDEX idx_challenges_user_date   ON challenges (user_id, date DESC);
 CREATE INDEX idx_challenges_user_status ON challenges (user_id, status);
@@ -136,13 +140,22 @@ CREATE TABLE challenge_bank (
   difficulty    TEXT    NOT NULL CHECK (difficulty IN ('easy','medium','hard')),
   duration_min  INT     NOT NULL,
   points        INT     NOT NULL,
-  language      TEXT    NOT NULL DEFAULT 'en',  -- 'en' or 'bg'
+  language      TEXT    NOT NULL DEFAULT 'en'
+                CHECK (language IN ('en', 'bg')),
   tags          TEXT[]  NOT NULL DEFAULT '{}',
   is_active     BOOLEAN NOT NULL DEFAULT TRUE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Publicly readable (no RLS) — only service role can write
+-- Public read access via RLS; service role bypasses RLS so it can still write.
+ALTER TABLE challenge_bank ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "public_read_challenge_bank"
+  ON challenge_bank FOR SELECT USING (TRUE);
+
+-- Defence in depth: revoke write privileges from the public-facing roles.
+REVOKE INSERT, UPDATE, DELETE
+  ON challenge_bank FROM anon, authenticated;
 ```
 
 ### `generation_log`
@@ -232,15 +245,40 @@ BEGIN
       updated_at          = NOW()
     WHERE user_id = p_user_id;
   ELSE
-    -- Gap detected — reset streak
+    -- Gap detected — reset streak. Still bump longest_streak so the very
+    -- first completion (when longest is 0) records a new high of 1.
     UPDATE user_stats SET
       current_streak      = 1,
+      longest_streak      = GREATEST(longest_streak, 1),
       last_completed_date = CURRENT_DATE,
       last_active         = CURRENT_DATE,
       updated_at          = NOW()
     WHERE user_id = p_user_id;
   END IF;
 END;
+$$;
+```
+
+### `bump_challenges_seen(n INT)`
+
+Atomic, once-per-day increment of `user_stats.total_challenges_seen` for the
+calling user. Called from the client (`challengeStore.fetchToday`) every time
+today's challenges are loaded, but the `WHERE` clause is the idempotency guard
+— it only matches when `last_active` is NULL or strictly before today, so
+repeat opens within the same day (and concurrent opens from multiple devices)
+no-op atomically and cannot double-count. Runs as `SECURITY INVOKER` (the SQL
+default), so the user_stats RLS policy still applies and a caller can only
+bump their own row.
+
+```sql
+CREATE OR REPLACE FUNCTION bump_challenges_seen(n INT)
+RETURNS VOID LANGUAGE SQL AS $$
+  UPDATE user_stats SET
+    total_challenges_seen = total_challenges_seen + n,
+    last_active = CURRENT_DATE,
+    updated_at = NOW()
+  WHERE user_id = auth.uid()
+    AND (last_active IS NULL OR last_active < CURRENT_DATE);
 $$;
 ```
 
@@ -280,6 +318,39 @@ CREATE TRIGGER trg_sync_user_stats
   AFTER UPDATE ON challenges
   FOR EACH ROW
   EXECUTE FUNCTION sync_user_stats_on_challenge_update();
+```
+
+### `on_auth_user_created` (auth.users → user_profiles + user_stats)
+
+Fires after every new auth user is created and atomically provisions their
+`user_profiles` and `user_stats` rows. The trigger runs as `SECURITY DEFINER`
+so it bypasses RLS, and lives in the same transaction as the `auth.users`
+INSERT — if either child insert fails, the signup itself is rolled back, so
+there is never an authenticated user without app-side rows. Replaces the
+manual inserts that previously lived in the client `signUp` action.
+
+```sql
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, onboarding_completed)
+  VALUES (NEW.id, FALSE);
+
+  INSERT INTO public.user_stats (user_id)
+  VALUES (NEW.id);
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
 ```
 
 ---

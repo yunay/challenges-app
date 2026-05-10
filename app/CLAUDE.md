@@ -1,5 +1,48 @@
 # Daily Challenges App — Claude Code Instructions
 
+## Current Status
+
+### Completed
+- Expo project initialized with TypeScript strict mode
+- Expo Router with (auth) and (tabs) route groups
+- NativeWind configured
+- Supabase client configured (EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_KEY)
+- All 6 DB tables created with RLS and CHECK constraints
+- Migrations: 001–009 applied in Supabase (007 = seed_first_day_challenges RPC; 008 = get_my_completion_rates RPC; 009 = get_completion_rate includes today when done)
+- challenge_bank seeded (20 rows: EN + BG)
+- Auth flow: register, login, session persistence
+- All screens created and wired: Welcome, Auth, Survey, Home, History, Profile
+- Mark as done → persists to challenges table
+- Streak trigger working (user_stats updates on completion)
+- Backfill script for pre-trigger users documented
+- total_challenges_seen incrementing on fetch via bump_challenges_seen RPC (migration 006)
+- longest_streak now bumped on first completion (gap branch in 002_streak_functions.sql GREATEST-guards it)
+- AI challenge generation (Claude API → claude-haiku-4-5-20251001)
+- generateForUser() with partial set cleanup
+- generation_log tracking (tokens, cost_usd)
+- testGeneration.ts script
+- Home screen wired with real data from DB
+- categoryColors / categoryIcon helpers
+- Empty state ("Your challenges are being prepared...")
+- HomeScreen: completed state persists across reload (driven by mainChallenge.status === 'done')
+- HomeScreen: real user name (auth metadata → email-prefix fallback), streak (user_stats.current_streak via fetchStats), and locale-aware date eyebrow
+- challengeStore.fetchStats action + stats slice
+- Onboarding survey persists to user_profiles (goals + daily_time_minutes + preferred_time + language + timezone), flips onboarding_completed last, redirects to Home; inline errors + double-submit guard
+- First-day challenges seeded from challenge_bank on onboarding completion (no AI; language-matched, easy-only) via seed_first_day_challenges RPC (migration 007)
+- Feedback buttons persist to challenges.feedback (all four values: easy/great/too_hard/not_applicable; validated, optimistic + rollback, hydrate from DB on cold start)
+- Profile screen wired to user_stats (streak, points, d30 completion %) + auth (name + email); i18n labels populated; loading shown as `—` placeholders
+- Completion rates computed on-the-fly via get_my_completion_rates RPC (migration 008); stored columns kept as advisory cache for the AI generator
+- get_completion_rate now includes today conditionally (today counts only when status='done'); migration 009
+- HistoryScreen wired to real data: stats from user_stats, calendar driven by challengeStore.fetchHistory(monthStart, monthEnd) with prev/next month nav, last-7-days list, and day-tap detail modal (built-in RN Modal). Locale-aware month name + weekday header.
+
+### Known Issues
+- _none currently tracked_
+
+### Next Steps
+- Push notifications (Expo + FCM)
+- Weekly chart on Profile — needs per-day completion API/aggregation
+- Cron job deployment for scheduler.ts
+
 ## Project Overview
 A mobile app (React Native + Expo) that delivers AI-generated personalized daily challenges.
 Core differentiator: **adaptive AI** — the system learns from user feedback and improves over time.
@@ -23,56 +66,57 @@ Core differentiator: **adaptive AI** — the system learns from user feedback an
 ## Project Structure
 ```
 daily-challenges/
-├── app/                        # React Native screens (Expo Router)
-│   ├── (auth)/                 # Login, Register, Onboarding
-│   │   ├── login.tsx
-│   │   ├── register.tsx
-│   │   └── onboarding/         # Multi-step onboarding survey
-│   ├── (tabs)/                 # Main app tabs
-│   │   ├── index.tsx           # Home — today's challenges
-│   │   ├── history.tsx         # Calendar view
-│   │   └── profile.tsx         # Stats + settings
-│   └── _layout.tsx
+├── app/                            # React Native screens (Expo Router)
+│   ├── (auth)/
+│   │   ├── _layout.tsx             # Stack for the auth flow
+│   │   ├── welcome.tsx             # Landing screen with CTAs
+│   │   ├── login.tsx               # Wraps AuthScreen mode="login"
+│   │   ├── register.tsx            # Wraps AuthScreen mode="register"
+│   │   └── onboarding.tsx          # SurveyScreen — single step for now (multi-step planned)
+│   ├── (tabs)/
+│   │   ├── _layout.tsx             # Tabs route group; default bar hidden — screens render their own
+│   │   ├── index.tsx               # Home — today's challenges
+│   │   ├── history.tsx             # Calendar view
+│   │   └── profile.tsx             # Stats + settings
+│   ├── _layout.tsx                 # Root: QueryClient + onAuthStateChange listener
+│   └── index.tsx                   # Boot router: redirects on session + onboarding state
 ├── src/
-│   ├── components/             # Reusable UI components
-│   │   ├── ChallengeCard.tsx
-│   │   ├── StreakCounter.tsx
-│   │   └── FeedbackButtons.tsx
-│   ├── hooks/                  # Custom React hooks
-│   │   ├── useChallenges.ts
-│   │   ├── useStreak.ts
-│   │   └── useProfile.ts
-│   ├── services/               # API calls, Supabase client
-│   │   ├── supabase.ts
-│   │   ├── challenges.ts
-│   │   └── notifications.ts
-│   ├── store/                  # Zustand global state
-│   │   ├── authStore.ts
-│   │   └── challengeStore.ts
-│   ├── i18n/                   # Internationalization
-│   │   ├── index.ts            # i18next setup
-│   │   ├── en.json             # English strings (primary)
-│   │   └── bg.json             # Bulgarian strings
-│   └── utils/
-│       ├── constants.ts
-│       └── dateHelpers.ts
-├── server/                     # Fastify backend
-│   ├── routes/
-│   │   ├── challenges.ts
-│   │   └── users.ts
+│   ├── components/
+│   │   ├── BottomTabBar.tsx        # Shared bar — passed to History/Profile via footer prop
+│   │   └── screens/                # React Native ports of handoff designs
+│   │       ├── AuthScreen.tsx      # Login + Register modes
+│   │       ├── HistoryScreen.tsx
+│   │       ├── HomeScreen.tsx
+│   │       ├── ProfileScreen.tsx
+│   │       ├── SurveyScreen.tsx
+│   │       └── WelcomeScreen.tsx
+│   ├── hooks/                      # (planned — empty)
 │   ├── services/
-│   │   ├── challengeGenerator.ts   # Claude API integration
-│   │   ├── scheduler.ts            # Cron jobs (02:00 daily)
-│   │   └── notifications.ts
+│   │   └── supabase.ts             # Supabase client (AsyncStorage session persistence)
+│   ├── utils/
+│   │   └── displayName.ts          # deriveDisplayName(email, metadata) — shared by Home + Profile
+│   ├── store/                      # Zustand
+│   │   ├── authStore.ts            # session, user, isLoading, onboardingCompleted; signIn/Up/Out
+│   │   └── challengeStore.ts       # fetchToday (with seen-count bump), markMainDone, setMainFeedback
+│   └── i18n/
+│       ├── index.ts                # i18next setup
+│       ├── en.json
+│       └── bg.json
+├── server/                         # Fastify backend (planned)
+│   ├── routes/                     # (planned: challenges.ts, users.ts)
+│   ├── services/                   # (planned: challengeGenerator, scheduler, notifications)
 │   └── db/
-│       ├── schema.sql
-│       └── migrations/
+│       ├── migrations/             # 001..005 — see docs/DB_SCHEMA.md
+│       └── seeds/
+│           └── challenge_bank_seed.sql
+├── handoff/                        # Original web prototypes — design source of truth
 ├── docs/
 │   ├── PROJECT_PLAN.md
 │   ├── AI_GENERATION.md
 │   ├── DB_SCHEMA.md
-│   └── COMPETITIVE_ANALYSIS.md
-└── CLAUDE.md                   # This file — read by Claude Code automatically
+│   ├── COMPETITIVE_ANALYSIS.md
+│   └── HANDOFF_README.md
+└── CLAUDE.md                       # This file — read by Claude Code automatically
 ```
 
 ## Code Conventions
@@ -240,6 +284,12 @@ POSTHOG_API_KEY=
 ### Challenge generation
 - Runs as a **cron job at 02:00 every night** for the next day
 - 1 main challenge + 2 bonus challenges per user per day
+- **User selection:** every `user_profiles` row with `onboarding_completed = true` that does NOT already have a `challenges` row for tomorrow's date. This means:
+  - Users active daily → get a fresh challenge every night
+  - Users inactive for weeks → still get a challenge (cheap; row sits unread until they return)
+  - New users who just finished onboarding → get their first challenge on the next 02:00 run
+  - Re-running the cron on the same night is idempotent — users already covered are skipped
+  - Users still in onboarding → skipped (no profile data to personalize on)
 - Never repeats a challenge from the last **14 days**
 - Adapts difficulty based on D7 completion rate:
   - `rate < 0.5` → easy only
@@ -269,7 +319,7 @@ POSTHOG_API_KEY=
 2. **Challenge generation is critical path** — always wrap in try/catch with fallback
 3. **Never log** `SUPABASE_SERVICE_ROLE_KEY` or `ANTHROPIC_API_KEY`
 4. **Row Level Security is mandatory** — users must only access their own data
-5. **Claude API rate limiting** — max 50 req/min; scheduler must `sleep(200ms)` between users
+5. **Anthropic API: Tier 1 — 50 req/min for Haiku.** Scheduler uses 1300ms sleep → ~46 req/min. At Tier 1: max ~2,700 users generated per hour. Upgrade to Tier 2 when active users exceed 2,000.
 6. **Always validate AI JSON output** before writing to DB
 7. **Push notification limit** — strictly 2/day per user; exceeding risks uninstall
 8. **i18n is non-negotiable** — never hardcode user-facing strings

@@ -1,10 +1,16 @@
-// Daily Challenges — History screen (React Native port of handoff/history-screen.jsx).
-// Streak stats · monthly calendar (amber-filled completed days) · last-7-days list.
+// Daily Challenges — History screen.
+// Streak stats · monthly calendar · last-7-days list · day-tap detail modal.
 //
-// Requires: react-native-svg (install via `npx expo install react-native-svg`).
+// Pulls real data from challengeStore (stats + history). Keeps modal state
+// local — it's only useful while the screen is mounted, not worth a slot in
+// the global store.
+//
+// Requires: react-native-svg.
 
-import { type JSX, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -12,6 +18,13 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+
+import {
+  useChallengeStore,
+  type ChallengeCategory,
+  type ChallengeStatus,
+  type HistoryEntry,
+} from '@/store/challengeStore';
 
 // ---------------------------------------------------------------------------
 // Theme tokens (mirror handoff exactly — Warm Amber on Stone neutrals)
@@ -28,15 +41,17 @@ const THEMES = {
     border: '#ECEAE3',
     border2: '#DAD8D0',
     accent: '#D97706',
+    accentBg: '#FEF6E7',
     onAccent: '#FFFFFF',
     catHealth: '#B5523F',
     catHealthBg: 'rgba(181,82,63,0.12)',
     catMental: '#7E6FA8',
     catMentalBg: 'rgba(126,111,168,0.12)',
-    catProd: '#2C7A7B',
-    catProdBg: 'rgba(44,122,123,0.14)',
+    catProd: '#D97706',
+    catProdBg: '#FEF6E7',
     catSocial: '#1D9E75',
     catSocialBg: 'rgba(29,158,117,0.14)',
+    overlay: 'rgba(15,30,25,0.45)',
   },
   dark: {
     bg: '#15161A',
@@ -48,15 +63,17 @@ const THEMES = {
     border: '#2D2F37',
     border2: '#3D404A',
     accent: '#F5B14E',
+    accentBg: 'rgba(245,177,78,0.12)',
     onAccent: '#15161A',
     catHealth: '#E07863',
     catHealthBg: 'rgba(224,120,99,0.16)',
     catMental: '#A89BD0',
     catMentalBg: 'rgba(168,155,208,0.16)',
-    catProd: '#5BA8A9',
-    catProdBg: 'rgba(91,168,169,0.18)',
+    catProd: '#F5B14E',
+    catProdBg: 'rgba(245,177,78,0.12)',
     catSocial: '#4DC097',
     catSocialBg: 'rgba(77,192,151,0.18)',
+    overlay: 'rgba(0,0,0,0.55)',
   },
 } as const;
 
@@ -64,38 +81,27 @@ type ThemeName = keyof typeof THEMES;
 type Theme = (typeof THEMES)[ThemeName];
 
 const FONT_DISPLAY = 'PlusJakartaSans_700Bold';
-const FONT_BODY = 'Inter_400Regular';
 const FONT_BODY_MEDIUM = 'Inter_500Medium';
 const FONT_BODY_SEMI = 'Inter_600SemiBold';
 
 // ---------------------------------------------------------------------------
-// Categories
+// Categories — finance + productivity reuse existing tokens (no new surfaces).
+// Mirrors HomeScreen's categoryColors helper to keep the look consistent.
 // ---------------------------------------------------------------------------
 
-export type HistoryCategory = 'health' | 'mental' | 'productivity' | 'social';
-
-const HIST_CATS: Record<HistoryCategory, { label: string; color: (t: Theme) => string; bg: (t: Theme) => string }> = {
-  health: {
-    label: 'Health',
-    color: (t): string => t.catHealth,
-    bg: (t): string => t.catHealthBg,
-  },
-  mental: {
-    label: 'Mental',
-    color: (t): string => t.catMental,
-    bg: (t): string => t.catMentalBg,
-  },
-  productivity: {
-    label: 'Productivity',
-    color: (t): string => t.catProd,
-    bg: (t): string => t.catProdBg,
-  },
-  social: {
-    label: 'Social',
-    color: (t): string => t.catSocial,
-    bg: (t): string => t.catSocialBg,
-  },
-};
+function catColor(category: ChallengeCategory, t: Theme): string {
+  switch (category) {
+    case 'health':
+      return t.catHealth;
+    case 'mental':
+    case 'finance':
+      return t.catMental;
+    case 'productivity':
+      return t.catProd;
+    case 'social':
+      return t.catSocial;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Icons
@@ -119,23 +125,62 @@ const ChevRight = ({ size = 18, color, sw = 1.5 }: ChevronProps): JSX.Element =>
   </Svg>
 );
 
-interface CheckSmIconProps {
+interface SmIconProps {
   size?: number;
   color: string;
   sw?: number;
 }
 
-const CheckSm = ({ size = 13, color, sw = 2.8 }: CheckSmIconProps): JSX.Element => (
+const CheckSm = ({ size = 13, color, sw = 2.8 }: SmIconProps): JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M20 6 9 17l-5-5" />
   </Svg>
 );
 
-const XSm = ({ size = 11, color, sw = 2 }: CheckSmIconProps): JSX.Element => (
+const XSm = ({ size = 11, color, sw = 2 }: SmIconProps): JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M18 6 6 18M6 6l12 12" />
   </Svg>
 );
+
+const XLg = ({ size = 18, color, sw = 1.8 }: SmIconProps): JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M18 6 6 18M6 6l12 12" />
+  </Svg>
+);
+
+// ---------------------------------------------------------------------------
+// Date helpers (kept inline — date-fns / dayjs are out of scope)
+// ---------------------------------------------------------------------------
+
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function firstOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function lastOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
+
+// Monday-first weekday: Mon=0..Sun=6.
+function mondayIndex(d: Date): number {
+  return (d.getDay() + 6) % 7;
+}
+
+// Parse a 'YYYY-MM-DD' string into a local-midnight Date. Avoids `new Date(s)`,
+// which interprets the form as UTC and shifts ahead by the local TZ offset.
+function parseLocalDate(s: string): Date {
+  const y = Number(s.slice(0, 4));
+  const m = Number(s.slice(5, 7));
+  const d = Number(s.slice(8, 10));
+  return new Date(y, m - 1, d);
+}
 
 // ---------------------------------------------------------------------------
 // Stats row
@@ -197,45 +242,34 @@ const HStat = ({ value, suffix, label, t }: HStatProps): JSX.Element => (
 // Calendar
 // ---------------------------------------------------------------------------
 
-type DayStatus = 'done' | 'today' | 'skipped' | 'future';
-
 interface DayCell {
   day: number;
-  status: DayStatus;
+  dateStr: string;
+  isToday: boolean;
+  isFuture: boolean;
+  entry: HistoryEntry | undefined;
 }
 
-interface CalendarMonth {
-  monthLabel: string;
-  /** 0=Mon..6=Sun, weekday of the 1st of the month */
-  startWeekday: number;
-  daysInMonth: number;
-  /** 1-based day-of-month */
-  todayDay: number;
-  /** 1-based days marked skipped (must be < todayDay) */
-  skippedDays?: number[];
-  canGoNext?: boolean;
-}
-
-// Default fixture matches handoff/history-screen.jsx — May 2026, today = Wed May 6,
-// May 1 = Friday (weekday index 4 with Monday-first weeks), days 2 & 5 skipped.
-const DEFAULT_MONTH: CalendarMonth = {
-  monthLabel: 'May 2026',
-  startWeekday: 4,
-  daysInMonth: 31,
-  todayDay: 6,
-  skippedDays: [2, 5],
-  canGoNext: false,
-};
-
-function buildMonth(m: CalendarMonth): (DayCell | null)[] {
+function buildCells(
+  viewMonth: Date,
+  todayStr: string,
+  entryByDate: Map<string, HistoryEntry>,
+): (DayCell | null)[] {
   const cells: (DayCell | null)[] = [];
-  for (let i = 0; i < m.startWeekday; i++) cells.push(null);
-  const skipped = new Set(m.skippedDays ?? []);
-  for (let d = 1; d <= m.daysInMonth; d++) {
-    let status: DayStatus = 'future';
-    if (d < m.todayDay) status = skipped.has(d) ? 'skipped' : 'done';
-    else if (d === m.todayDay) status = 'today';
-    cells.push({ day: d, status });
+  const start = firstOfMonth(viewMonth);
+  const end = lastOfMonth(viewMonth);
+  const leading = mondayIndex(start);
+  for (let i = 0; i < leading; i++) cells.push(null);
+  for (let d = 1; d <= end.getDate(); d++) {
+    const dt = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), d);
+    const dateStr = formatLocalDate(dt);
+    cells.push({
+      day: d,
+      dateStr,
+      isToday: dateStr === todayStr,
+      isFuture: dateStr > todayStr,
+      entry: entryByDate.get(dateStr),
+    });
   }
   while (cells.length % 7 !== 0) cells.push(null);
   return cells;
@@ -286,20 +320,33 @@ const LegendItem = ({ label, t, dot, ringColor, small }: LegendItemProps): JSX.E
 
 interface CalendarProps {
   t: Theme;
-  month: CalendarMonth;
-  onPrevMonth?: () => void;
-  onNextMonth?: () => void;
+  monthLabel: string;
+  weekdayLetters: string[];
+  cells: (DayCell | null)[];
+  canGoNext: boolean;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+  onPickDay: (cell: DayCell) => void;
+  legendDone: string;
+  legendToday: string;
+  legendSkipped: string;
 }
 
-const Calendar = ({ t, month, onPrevMonth, onNextMonth }: CalendarProps): JSX.Element => {
-  const cells = buildMonth(month);
-  const canGoNext = month.canGoNext === true;
-
-  // Split into 7-cell week rows so we can use flex (RN has no CSS Grid).
+const Calendar = ({
+  t,
+  monthLabel,
+  weekdayLetters,
+  cells,
+  canGoNext,
+  onPrevMonth,
+  onNextMonth,
+  onPickDay,
+  legendDone,
+  legendToday,
+  legendSkipped,
+}: CalendarProps): JSX.Element => {
   const rows: (DayCell | null)[][] = [];
-  for (let i = 0; i < cells.length; i += 7) {
-    rows.push(cells.slice(i, i + 7));
-  }
+  for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
 
   return (
     <View
@@ -338,7 +385,7 @@ const Calendar = ({ t, month, onPrevMonth, onNextMonth }: CalendarProps): JSX.El
             letterSpacing: -0.16,
           }}
         >
-          {month.monthLabel}
+          {monthLabel}
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -355,7 +402,7 @@ const Calendar = ({ t, month, onPrevMonth, onNextMonth }: CalendarProps): JSX.El
 
       {/* Weekday header */}
       <View style={{ flexDirection: 'row', gap: 4, marginBottom: 8 }}>
-        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+        {weekdayLetters.map((d, i) => (
           <Text
             key={`${d}-${i}`}
             style={{
@@ -366,6 +413,7 @@ const Calendar = ({ t, month, onPrevMonth, onNextMonth }: CalendarProps): JSX.El
               color: t.fg3,
               letterSpacing: 0.66,
               fontFamily: FONT_BODY_SEMI,
+              textTransform: 'uppercase',
             }}
           >
             {d}
@@ -381,7 +429,7 @@ const Calendar = ({ t, month, onPrevMonth, onNextMonth }: CalendarProps): JSX.El
               if (!c) {
                 return <View key={cIdx} style={{ flex: 1, aspectRatio: 1 }} />;
               }
-              return <DayBox key={cIdx} cell={c} t={t} />;
+              return <DayBox key={cIdx} cell={c} t={t} onPickDay={onPickDay} />;
             })}
           </View>
         ))}
@@ -399,9 +447,9 @@ const Calendar = ({ t, month, onPrevMonth, onNextMonth }: CalendarProps): JSX.El
           flexWrap: 'wrap',
         }}
       >
-        <LegendItem label="Done" t={t} dot={t.accent} />
-        <LegendItem label="Today" t={t} ringColor={t.accent} />
-        <LegendItem label="Skipped" t={t} dot={t.border2} small />
+        <LegendItem label={legendDone} t={t} dot={t.accent} />
+        <LegendItem label={legendToday} t={t} ringColor={t.accent} />
+        <LegendItem label={legendSkipped} t={t} dot={t.border2} small />
       </View>
     </View>
   );
@@ -410,24 +458,34 @@ const Calendar = ({ t, month, onPrevMonth, onNextMonth }: CalendarProps): JSX.El
 interface DayBoxProps {
   cell: DayCell;
   t: Theme;
+  onPickDay: (cell: DayCell) => void;
 }
 
-const DayBox = ({ cell, t }: DayBoxProps): JSX.Element => {
-  const { day, status } = cell;
+const DayBox = ({ cell, t, onPickDay }: DayBoxProps): JSX.Element => {
+  const { day, isToday, isFuture, entry } = cell;
+  const status = entry?.status;
   const isDone = status === 'done';
-  const isToday = status === 'today';
   const isSkipped = status === 'skipped';
-  const isFuture = status === 'future';
 
-  const textColor = isDone
+  // Today + already done → done style wins (filled circle). Today + not yet
+  // done → outlined ring. Past pending rows render as plain greyed numbers,
+  // matching the screenshot ("the day passed, nothing to celebrate").
+  const showDoneStyle = isDone;
+  const showTodayRing = isToday && !isDone;
+
+  const textColor = showDoneStyle
     ? t.onAccent
-    : isToday
+    : showTodayRing
       ? t.accent
-      : isSkipped
+      : isFuture
         ? t.fg4
-        : t.fg3;
+        : isSkipped
+          ? t.fg4
+          : t.fg2;
 
-  return (
+  const tappable = !!entry && !isFuture;
+
+  const inner = (
     <View
       style={{
         flex: 1,
@@ -435,17 +493,17 @@ const DayBox = ({ cell, t }: DayBoxProps): JSX.Element => {
         borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: isDone ? t.accent : 'transparent',
+        backgroundColor: showDoneStyle ? t.accent : 'transparent',
         borderWidth: 1.5,
-        borderColor: isToday ? t.accent : 'transparent',
+        borderColor: showTodayRing ? t.accent : 'transparent',
         opacity: isFuture ? 0.45 : 1,
       }}
     >
       <Text
         style={{
-          fontFamily: isDone || isToday ? FONT_BODY_SEMI : FONT_BODY_MEDIUM,
+          fontFamily: showDoneStyle || showTodayRing ? FONT_BODY_SEMI : FONT_BODY_MEDIUM,
           fontSize: 13,
-          fontWeight: isDone || isToday ? '600' : '500',
+          fontWeight: showDoneStyle || showTodayRing ? '600' : '500',
           color: textColor,
           fontVariant: ['tabular-nums'],
         }}
@@ -466,30 +524,40 @@ const DayBox = ({ cell, t }: DayBoxProps): JSX.Element => {
       )}
     </View>
   );
+
+  if (!tappable) {
+    return <View style={{ flex: 1 }}>{inner}</View>;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={cell.dateStr}
+      onPress={(): void => onPickDay(cell)}
+      style={{ flex: 1 }}
+    >
+      {inner}
+    </Pressable>
+  );
 };
 
 // ---------------------------------------------------------------------------
 // Last-7-days list
 // ---------------------------------------------------------------------------
 
-export type RowStatus = 'done' | 'skipped' | 'today';
-
-export interface HistoryRowData {
-  date: string;
-  day: string; // weekday eyebrow (MON, TUE, ...)
-  category: HistoryCategory;
-  title: string;
-  status: RowStatus;
-}
-
-interface HistoryRowProps extends HistoryRowData {
+interface HistoryRowProps {
   t: Theme;
-  last?: boolean;
+  entry: HistoryEntry;
+  weekday: string; // localized short weekday, e.g. "WED"
+  categoryLabel: string;
+  last: boolean;
 }
 
-const HistoryRow = ({ date, day, category, title, status, t, last = false }: HistoryRowProps): JSX.Element => {
-  const cat = HIST_CATS[category];
-  const catColor = cat.color(t);
+const HistoryRow = ({ t, entry, weekday, categoryLabel, last }: HistoryRowProps): JSX.Element => {
+  const color = catColor(entry.category, t);
+  const dayNum = String(parseInt(entry.date.slice(8, 10), 10));
+  const isDone = entry.status === 'done';
+  const isSkipped = entry.status === 'skipped';
 
   return (
     <View
@@ -515,7 +583,7 @@ const HistoryRow = ({ date, day, category, title, status, t, last = false }: His
             fontFamily: FONT_BODY_SEMI,
           }}
         >
-          {day}
+          {weekday}
         </Text>
         <Text
           style={{
@@ -529,7 +597,7 @@ const HistoryRow = ({ date, day, category, title, status, t, last = false }: His
             marginTop: 1,
           }}
         >
-          {date}
+          {dayNum}
         </Text>
       </View>
 
@@ -539,7 +607,7 @@ const HistoryRow = ({ date, day, category, title, status, t, last = false }: His
           width: 3,
           height: 32,
           borderRadius: 2,
-          backgroundColor: catColor,
+          backgroundColor: color,
         }}
       />
 
@@ -554,15 +622,15 @@ const HistoryRow = ({ date, day, category, title, status, t, last = false }: His
             fontWeight: '500',
             lineHeight: 18,
             fontFamily: FONT_BODY_MEDIUM,
-            opacity: status === 'skipped' ? 0.55 : 1,
+            opacity: isSkipped ? 0.55 : 1,
           }}
         >
-          {title}
+          {entry.title}
         </Text>
         <Text
           style={{
             fontSize: 11,
-            color: catColor,
+            color,
             fontWeight: '600',
             letterSpacing: 0.44,
             textTransform: 'uppercase',
@@ -570,12 +638,12 @@ const HistoryRow = ({ date, day, category, title, status, t, last = false }: His
             fontFamily: FONT_BODY_SEMI,
           }}
         >
-          {cat.label}
+          {categoryLabel}
         </Text>
       </View>
 
-      {/* Status badge — done (filled) or skipped (outline X). Today = no badge. */}
-      {status === 'done' && (
+      {/* Status badge */}
+      {isDone && (
         <View
           style={{
             width: 24,
@@ -589,7 +657,7 @@ const HistoryRow = ({ date, day, category, title, status, t, last = false }: His
           <CheckSm size={13} color={t.onAccent} sw={2.8} />
         </View>
       )}
-      {status === 'skipped' && (
+      {isSkipped && (
         <View
           style={{
             width: 24,
@@ -609,52 +677,291 @@ const HistoryRow = ({ date, day, category, title, status, t, last = false }: His
 };
 
 // ---------------------------------------------------------------------------
+// Day-tap detail modal
+// ---------------------------------------------------------------------------
+
+interface DetailModalProps {
+  t: Theme;
+  entry: HistoryEntry | null;
+  locale: string;
+  onClose: () => void;
+  statusLabel: (s: ChallengeStatus) => string;
+  categoryLabel: (c: ChallengeCategory) => string;
+  closeLabel: string;
+}
+
+const DetailModal = ({
+  t,
+  entry,
+  locale,
+  onClose,
+  statusLabel,
+  categoryLabel,
+  closeLabel,
+}: DetailModalProps): JSX.Element => {
+  if (!entry) {
+    // Modal still rendered (visible=false) so it can animate out cleanly.
+    return <Modal visible={false} transparent animationType="fade" onRequestClose={onClose} />;
+  }
+  const dt = parseLocalDate(entry.date);
+  const fullDate = dt.toLocaleDateString(locale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const color = catColor(entry.category, t);
+
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={closeLabel}
+        onPress={onClose}
+        style={{
+          flex: 1,
+          backgroundColor: t.overlay,
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+        }}
+      >
+        {/* Inner Pressable swallows taps so the card itself doesn't dismiss. */}
+        <Pressable
+          onPress={(): void => {}}
+          style={{
+            backgroundColor: t.surface,
+            borderRadius: 16,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: t.border,
+            gap: 14,
+          }}
+        >
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 13,
+                color: t.fg3,
+                fontWeight: '500',
+                fontFamily: FONT_BODY_MEDIUM,
+              }}
+            >
+              {fullDate}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={closeLabel}
+              onPress={onClose}
+              hitSlop={10}
+              style={{ padding: 4, marginRight: -4, marginTop: -4 }}
+            >
+              <XLg color={t.fg3} />
+            </Pressable>
+          </View>
+
+          <Text
+            style={{
+              fontFamily: FONT_DISPLAY,
+              fontSize: 18,
+              fontWeight: '700',
+              color: t.fg1,
+              letterSpacing: -0.36,
+              lineHeight: 24,
+            }}
+          >
+            {entry.title}
+          </Text>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View
+              style={{
+                width: 3,
+                height: 16,
+                borderRadius: 2,
+                backgroundColor: color,
+              }}
+            />
+            <Text
+              style={{
+                fontSize: 11,
+                color,
+                fontWeight: '600',
+                letterSpacing: 0.44,
+                textTransform: 'uppercase',
+                fontFamily: FONT_BODY_SEMI,
+              }}
+            >
+              {categoryLabel(entry.category)}
+            </Text>
+          </View>
+
+          <StatusBadge t={t} status={entry.status} label={statusLabel(entry.status)} />
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+};
+
+interface StatusBadgeProps {
+  t: Theme;
+  status: ChallengeStatus;
+  label: string;
+}
+
+const StatusBadge = ({ t, status, label }: StatusBadgeProps): JSX.Element => {
+  const isDone = status === 'done';
+  const bg = isDone ? t.accent : status === 'skipped' ? t.border : t.surface;
+  const fg = isDone ? t.onAccent : status === 'skipped' ? t.fg2 : t.fg2;
+  const borderColor = isDone ? t.accent : t.border2;
+  return (
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 99,
+        backgroundColor: bg,
+        borderWidth: 1,
+        borderColor,
+      }}
+    >
+      {isDone && <CheckSm size={11} color={t.onAccent} sw={2.6} />}
+      <Text
+        style={{
+          fontSize: 11,
+          color: fg,
+          fontWeight: '600',
+          letterSpacing: 0.44,
+          textTransform: 'uppercase',
+          fontFamily: FONT_BODY_SEMI,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // HistoryScreen
 // ---------------------------------------------------------------------------
 
-const DEFAULT_LAST7: HistoryRowData[] = [
-  { date: '6', day: 'WED', category: 'health', title: '20-min walk without your phone', status: 'today' },
-  { date: '5', day: 'TUE', category: 'mental', title: 'Pause and breathe for 2 minutes', status: 'skipped' },
-  { date: '4', day: 'MON', category: 'productivity', title: "Write tomorrow’s three priorities", status: 'done' },
-  { date: '3', day: 'SUN', category: 'social', title: "Call someone you haven’t in a while", status: 'done' },
-  { date: '2', day: 'SAT', category: 'health', title: 'Stretch for 5 minutes after waking', status: 'skipped' },
-  { date: '1', day: 'FRI', category: 'mental', title: "Write 3 things you’re grateful for", status: 'done' },
-  { date: '30', day: 'THU', category: 'productivity', title: 'Inbox zero before lunch', status: 'done' },
-];
-
-export interface HistoryScreenStats {
-  current: number;
-  longest: number;
-  rate30d: number;
-}
-
-const DEFAULT_STATS: HistoryScreenStats = {
-  current: 14,
-  longest: 28,
-  rate30d: 83,
-};
-
 export interface HistoryScreenProps {
   theme: ThemeName;
-  stats?: HistoryScreenStats;
-  month?: CalendarMonth;
-  last7?: HistoryRowData[];
-  onPrevMonth?: () => void;
-  onNextMonth?: () => void;
   /** Optional bottom slot to layer a tab bar on top of the screen. */
   footer?: ReactNode;
 }
 
-export default function HistoryScreen({
-  theme,
-  stats = DEFAULT_STATS,
-  month = DEFAULT_MONTH,
-  last7 = DEFAULT_LAST7,
-  onPrevMonth,
-  onNextMonth,
-  footer,
-}: HistoryScreenProps): JSX.Element {
+export default function HistoryScreen({ theme, footer }: HistoryScreenProps): JSX.Element {
+  const { t: tr, i18n } = useTranslation();
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
+
+  const stats = useChallengeStore((s) => s.stats);
+  const history = useChallengeStore((s) => s.history);
+  const fetchStats = useChallengeStore((s) => s.fetchStats);
+  const fetchHistory = useChallengeStore((s) => s.fetchHistory);
+
+  // Snapshot today once per mount. Used for "today" calendar marking and as
+  // the upper bound of the next-month chevron — recomputing per render would
+  // cause the lookup map and last-7 list to thrash.
+  const today = useMemo(() => new Date(), []);
+  const todayStr = useMemo(() => formatLocalDate(today), [today]);
+
+  const [viewMonth, setViewMonth] = useState<Date>(() => firstOfMonth(today));
+  const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null);
+
+  // Pull stats once per mount — Profile/Home do the same, and the screen
+  // visit is the natural refresh trigger.
+  useEffect(() => {
+    void fetchStats().then((res) => {
+      if (res.error) console.warn('[fetchStats]', res.error);
+    });
+  }, [fetchStats]);
+
+  // Refetch history whenever the visible month changes (and on mount).
+  useEffect(() => {
+    const start = firstOfMonth(viewMonth);
+    const end = lastOfMonth(viewMonth);
+    void fetchHistory(start, end).then((res) => {
+      if (res.error) console.warn('[fetchHistory]', res.error);
+    });
+  }, [viewMonth, fetchHistory]);
+
+  // O(1) lookup per cell.
+  const entryByDate = useMemo(() => {
+    const map = new Map<string, HistoryEntry>();
+    for (const e of history ?? []) map.set(e.date, e);
+    return map;
+  }, [history]);
+
+  const cells = useMemo(
+    () => buildCells(viewMonth, todayStr, entryByDate),
+    [viewMonth, todayStr, entryByDate],
+  );
+
+  // Last-7-days list: today + 6 prior days, most-recent first. Crosses month
+  // boundaries on the 1st-7th — the store's `history` only covers the
+  // current viewMonth, so early-month entries from the previous month aren't
+  // visible. That's the same trade-off as keeping fetches scoped to the
+  // visible month; refetching on month flip keeps things simple.
+  const last7 = useMemo<HistoryEntry[]>(() => {
+    if (!history) return [];
+    const cutoff = new Date(today);
+    cutoff.setDate(cutoff.getDate() - 6);
+    const cutoffStr = formatLocalDate(cutoff);
+    return history
+      .filter((e) => e.date >= cutoffStr && e.date <= todayStr)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [history, today, todayStr]);
+
+  const locale = i18n.language === 'bg' ? 'bg-BG' : 'en-GB';
+
+  const monthLabel = useMemo(
+    () => viewMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' }),
+    [viewMonth, locale],
+  );
+
+  // Mon..Sun letters, locale-aware. 2024-01-01 is a Monday, so we walk
+  // forward 7 days from that anchor.
+  const weekdayLetters = useMemo(() => {
+    const letters: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(2024, 0, 1 + i);
+      letters.push(d.toLocaleDateString(locale, { weekday: 'narrow' }));
+    }
+    return letters;
+  }, [locale]);
+
+  // Disable next-month chevron when we'd jump past the current month.
+  const canGoNext = useMemo(() => {
+    const next = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
+    const thisMonth = firstOfMonth(today);
+    return next.getTime() <= thisMonth.getTime();
+  }, [viewMonth, today]);
+
+  const handlePrev = (): void => {
+    setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
+  };
+  const handleNext = (): void => {
+    if (!canGoNext) return;
+    setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
+  };
+
+  const statusLabel = (s: ChallengeStatus): string =>
+    tr(`history.modal.status.${s}`);
+  const categoryLabel = (c: ChallengeCategory): string =>
+    tr(`categories.${c}`);
+
+  const last7Empty = (history?.length ?? 0) > 0 ? last7.length === 0 : true;
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -675,7 +982,7 @@ export default function HistoryScreen({
             letterSpacing: -0.55,
           }}
         >
-          History
+          {tr('history.title')}
         </Text>
 
         {/* Streak stats row */}
@@ -693,15 +1000,44 @@ export default function HistoryScreen({
             } satisfies ViewStyle
           }
         >
-          <HStat value={String(stats.current)} suffix="days" label="Current" t={t} />
+          <HStat
+            value={stats ? String(stats.current_streak) : '—'}
+            suffix={stats ? tr('history.days_suffix') : undefined}
+            label={tr('history.current')}
+            t={t}
+          />
           <View style={{ width: 1, alignSelf: 'stretch', marginHorizontal: 8, backgroundColor: t.border }} />
-          <HStat value={String(stats.longest)} suffix="days" label="Longest" t={t} />
+          <HStat
+            value={stats ? String(stats.longest_streak) : '—'}
+            suffix={stats ? tr('history.days_suffix') : undefined}
+            label={tr('history.longest')}
+            t={t}
+          />
           <View style={{ width: 1, alignSelf: 'stretch', marginHorizontal: 8, backgroundColor: t.border }} />
-          <HStat value={String(stats.rate30d)} suffix="%" label="30-day rate" t={t} />
+          <HStat
+            value={stats ? String(Math.round(stats.d30_completion_rate * 100)) : '—'}
+            suffix={stats ? '%' : undefined}
+            label={tr('history.rate_30d')}
+            t={t}
+          />
         </View>
 
         {/* Calendar */}
-        <Calendar t={t} month={month} onPrevMonth={onPrevMonth} onNextMonth={onNextMonth} />
+        <Calendar
+          t={t}
+          monthLabel={monthLabel}
+          weekdayLetters={weekdayLetters}
+          cells={cells}
+          canGoNext={canGoNext}
+          onPrevMonth={handlePrev}
+          onNextMonth={handleNext}
+          onPickDay={(c): void => {
+            if (c.entry) setSelectedEntry(c.entry);
+          }}
+          legendDone={tr('history.legend_done')}
+          legendToday={tr('history.legend_today')}
+          legendSkipped={tr('history.legend_skipped')}
+        />
 
         {/* Last-7-days list */}
         <Text
@@ -716,16 +1052,53 @@ export default function HistoryScreen({
             fontFamily: FONT_BODY_SEMI,
           }}
         >
-          Last 7 days
+          {tr('history.last_7_days')}
         </Text>
-        <View>
-          {last7.map((row, i) => (
-            <HistoryRow key={`${row.date}-${row.day}`} {...row} t={t} last={i === last7.length - 1} />
-          ))}
-        </View>
+        {last7Empty ? (
+          <Text
+            style={{
+              fontSize: 13,
+              color: t.fg3,
+              fontFamily: FONT_BODY_MEDIUM,
+              fontWeight: '500',
+              paddingVertical: 14,
+              paddingHorizontal: 4,
+            }}
+          >
+            {tr('history.empty')}
+          </Text>
+        ) : (
+          <View>
+            {last7.map((entry, i) => {
+              const weekday = parseLocalDate(entry.date)
+                .toLocaleDateString(locale, { weekday: 'short' })
+                .toUpperCase();
+              return (
+                <HistoryRow
+                  key={entry.id}
+                  t={t}
+                  entry={entry}
+                  weekday={weekday}
+                  categoryLabel={categoryLabel(entry.category)}
+                  last={i === last7.length - 1}
+                />
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
       {footer}
+
+      <DetailModal
+        t={t}
+        entry={selectedEntry}
+        locale={locale}
+        onClose={(): void => setSelectedEntry(null)}
+        statusLabel={statusLabel}
+        categoryLabel={categoryLabel}
+        closeLabel={tr('history.modal.close')}
+      />
     </View>
   );
 }

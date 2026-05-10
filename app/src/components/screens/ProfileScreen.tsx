@@ -4,6 +4,7 @@
 // Requires: react-native-svg (install via `npx expo install react-native-svg`).
 
 import { cloneElement, type JSX, type ReactElement, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Pressable,
   ScrollView,
@@ -191,6 +192,7 @@ const CHART_AREA_HEIGHT = 96;
 const CHART_BAR_MAX_HEIGHT = 84; // matches source; 12px headroom under the 96 area
 
 const WeeklyChart = ({ t, data, doneCount }: WeeklyChartProps): JSX.Element => {
+  const { t: translate } = useTranslation();
   const max = Math.max(...data.map((d) => d.value), 1);
   const total = data.length;
   const done = doneCount ?? data.filter((d) => d.value > 0).length;
@@ -225,7 +227,7 @@ const WeeklyChart = ({ t, data, doneCount }: WeeklyChartProps): JSX.Element => {
             letterSpacing: -0.14,
           }}
         >
-          This week
+          {translate('profile.this_week')}
         </Text>
         <Text
           style={{
@@ -236,7 +238,7 @@ const WeeklyChart = ({ t, data, doneCount }: WeeklyChartProps): JSX.Element => {
             fontFamily: FONT_BODY_MEDIUM,
           }}
         >
-          {done} of {total} done
+          {translate('profile.n_of_m_done', { done, total })}
         </Text>
       </View>
 
@@ -451,18 +453,22 @@ const SectionLabel = ({ children, t }: SectionLabelProps): JSX.Element => (
 // ProfileScreen
 // ---------------------------------------------------------------------------
 
+// Pre-formatted display strings — the route does the number formatting and
+// passes '—' for loading states, keeping ProfileScreen pure presentation.
 export interface ProfileMetrics {
-  streak: number;
-  points: number;
-  completion: number;
+  streak: string;
+  points: string;
+  completion: string;
 }
 
-const DEFAULT_METRICS: ProfileMetrics = {
-  streak: 14,
-  points: 1240,
-  completion: 86,
+const LOADING_METRICS: ProfileMetrics = {
+  streak: '—',
+  points: '—',
+  completion: '—',
 };
 
+// TODO: replace with real per-day completion data once the history API exists.
+// Today the chart shows mock values purely so the layout doesn't collapse.
 const DEFAULT_WEEK: WeeklyDay[] = [
   { label: 'M', value: 18, today: false },
   { label: 'T', value: 25, today: false },
@@ -476,7 +482,9 @@ const DEFAULT_WEEK: WeeklyDay[] = [
 export interface ProfileScreenProps {
   theme: ThemeName;
   name: string;
-  memberSince?: string;
+  // Shown as the secondary line below the name. Optional so the component
+  // gracefully handles the brief window before auth.user lands.
+  email?: string;
   metrics?: ProfileMetrics;
   week?: WeeklyDay[];
   preferences?: {
@@ -506,19 +514,14 @@ function computeInitials(name: string): string {
   );
 }
 
-function formatNumber(n: number): string {
-  // Match the source's "1,240" rendering (thousands grouped) regardless of locale.
-  return n.toLocaleString('en-US');
-}
-
 export default function ProfileScreen({
   theme,
   name,
-  memberSince = 'Member since Apr 2025',
-  metrics = DEFAULT_METRICS,
+  email,
+  metrics = LOADING_METRICS,
   week = DEFAULT_WEEK,
   preferences,
-  subscriptionLabel = 'Free · Upgrade',
+  subscriptionLabel,
   onSettings,
   onGoals,
   onNotificationTime,
@@ -527,11 +530,13 @@ export default function ProfileScreen({
   footer,
 }: ProfileScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
+  const { t: translate } = useTranslation();
   const initials = computeInitials(name);
 
   const goalsValue = preferences?.goalsCount !== undefined ? `${preferences.goalsCount} selected` : '3 selected';
   const notifValue = preferences?.notificationTime ?? '8:00 AM';
   const langValue = preferences?.language ?? 'English';
+  const subscriptionValue = subscriptionLabel ?? translate('profile.free_upgrade');
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -559,7 +564,7 @@ export default function ProfileScreen({
               letterSpacing: -0.55,
             }}
           >
-            Profile
+            {translate('profile.title')}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -614,6 +619,8 @@ export default function ProfileScreen({
               {name}
             </Text>
             <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
               style={{
                 fontSize: 13,
                 color: t.fg3,
@@ -622,36 +629,65 @@ export default function ProfileScreen({
                 fontFamily: FONT_BODY_MEDIUM,
               }}
             >
-              {memberSince}
+              {email ?? '—'}
             </Text>
           </View>
         </View>
 
         {/* Metric row */}
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-          <Metric value={String(metrics.streak)} suffix="days" label="Streak" t={t} />
-          <Metric value={formatNumber(metrics.points)} label="Points" t={t} />
-          <Metric value={String(metrics.completion)} suffix="%" label="Completion" t={t} />
+          <Metric
+            value={metrics.streak}
+            suffix={translate('profile.days_suffix')}
+            label={translate('profile.streak')}
+            t={t}
+          />
+          <Metric value={metrics.points} label={translate('profile.points')} t={t} />
+          <Metric
+            value={metrics.completion}
+            suffix="%"
+            label={translate('profile.completion')}
+            t={t}
+          />
         </View>
 
-        {/* Weekly chart */}
+        {/* Weekly chart — TODO(history-api): swap mock data for real per-day completion. */}
         <WeeklyChart t={t} data={week} />
 
         {/* Preferences section */}
-        <SectionLabel t={t}>Preferences</SectionLabel>
+        <SectionLabel t={t}>{translate('profile.preferences')}</SectionLabel>
         <View>
-          <SettingsRow icon={<TargetIcon />} label="Goals" value={goalsValue} t={t} onPress={onGoals} />
-          <SettingsRow icon={<BellIcon />} label="Notification time" value={notifValue} t={t} onPress={onNotificationTime} />
-          <SettingsRow icon={<GlobeIcon />} label="Language" value={langValue} last t={t} onPress={onLanguage} />
+          <SettingsRow
+            icon={<TargetIcon />}
+            label={translate('profile.goals')}
+            value={goalsValue}
+            t={t}
+            onPress={onGoals}
+          />
+          <SettingsRow
+            icon={<BellIcon />}
+            label={translate('profile.notification_time')}
+            value={notifValue}
+            t={t}
+            onPress={onNotificationTime}
+          />
+          <SettingsRow
+            icon={<GlobeIcon />}
+            label={translate('profile.language')}
+            value={langValue}
+            last
+            t={t}
+            onPress={onLanguage}
+          />
         </View>
 
         {/* Plan section */}
-        <SectionLabel t={t}>Plan</SectionLabel>
+        <SectionLabel t={t}>{translate('profile.plan')}</SectionLabel>
         <View>
           <SettingsRow
             icon={<CrownIcon />}
-            label="Subscription"
-            value={subscriptionLabel}
+            label={translate('profile.subscription')}
+            value={subscriptionValue}
             valueColor={t.accent}
             accent
             last

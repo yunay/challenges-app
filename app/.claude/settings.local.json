@@ -8,7 +8,8 @@
       "Bash(npx tsc *)",
       "Read(//mnt/**)",
       "Read(//c//**)",
-      "Read(//d//**)"
+      "Read(//d//**)",
+      "Bash(echo \"EXIT: $?\")"
     ]
   }
 }

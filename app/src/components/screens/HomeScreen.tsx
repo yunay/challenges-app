@@ -6,11 +6,13 @@
 import {
   cloneElement,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type JSX,
   type ReactElement,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Easing,
@@ -165,6 +167,15 @@ const ThumbsDownIcon = ({ size = 18, color = 'currentColor', sw = 1.5 }: IconPro
   </Svg>
 );
 
+// Lucide "ban" — circle with a diagonal slash. Used for the not_applicable
+// feedback chip ("doesn't apply to me").
+const BanIcon = ({ size = 18, color = 'currentColor', sw = 1.5 }: IconProps): JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx={12} cy={12} r={10} />
+    <Path d="m4.93 4.93 14.14 14.14" />
+  </Svg>
+);
+
 // ---------------------------------------------------------------------------
 // Reusable atoms
 // ---------------------------------------------------------------------------
@@ -174,48 +185,51 @@ interface StreakPillProps {
   t: Theme;
 }
 
-const StreakPill = ({ count, t }: StreakPillProps): JSX.Element => (
-  <View
-    style={{
-      alignSelf: 'flex-start',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingVertical: 8,
-      paddingLeft: 12,
-      paddingRight: 16,
-      borderRadius: 9999,
-      backgroundColor: t.accentBg,
-      borderWidth: 1,
-      borderColor: t.accentBorder,
-    }}
-  >
-    <FlameIcon size={18} color={t.accent} />
-    <Text
+const StreakPill = ({ count, t }: StreakPillProps): JSX.Element => {
+  const { t: translate } = useTranslation();
+  return (
+    <View
       style={{
-        fontFamily: FONT_DISPLAY,
-        fontSize: 17,
-        fontWeight: '700',
-        color: t.accent,
-        fontVariant: ['tabular-nums'],
-        letterSpacing: -0.17,
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 8,
+        paddingLeft: 12,
+        paddingRight: 16,
+        borderRadius: 9999,
+        backgroundColor: t.accentBg,
+        borderWidth: 1,
+        borderColor: t.accentBorder,
       }}
     >
-      {count}
-    </Text>
-    <Text
-      style={{
-        fontFamily: FONT_BODY_MEDIUM,
-        fontSize: 13,
-        color: t.accent,
-        fontWeight: '500',
-        opacity: 0.85,
-      }}
-    >
-      {count === 1 ? 'day' : 'day streak'}
-    </Text>
-  </View>
-);
+      <FlameIcon size={18} color={t.accent} />
+      <Text
+        style={{
+          fontFamily: FONT_BODY_SEMI,
+          fontSize: 14,
+          color: t.accent,
+          fontWeight: '700',
+          fontVariant: ['tabular-nums'],
+          letterSpacing: -0.14,
+        }}
+      >
+        {translate('home.streak_count', { count })}
+      </Text>
+      <Text
+        style={{
+          fontFamily: FONT_BODY_MEDIUM,
+          fontSize: 12,
+          color: t.accent,
+          fontWeight: '500',
+          letterSpacing: -0.12,
+        }}
+      >
+        {translate('home.streak_label')}
+      </Text>
+    </View>
+  );
+};
 
 interface CategoryBadgeProps {
   icon: JSX.Element;
@@ -333,8 +347,42 @@ const PrimaryButton = ({ children, onPress, t }: PrimaryButtonProps): JSX.Elemen
   </Pressable>
 );
 
+// Category icon + color mapping. Health/mental have dedicated theme tokens;
+// productivity/social/finance reuse existing palette so no new design surfaces.
+type Category = 'health' | 'mental' | 'productivity' | 'social' | 'finance';
+
+function categoryColors(category: Category, t: Theme): { color: string; bg: string } {
+  switch (category) {
+    case 'health':
+    case 'social':
+      return { color: t.catHealth, bg: t.catHealthBg };
+    case 'mental':
+    case 'finance':
+      return { color: t.catMental, bg: t.catMentalBg };
+    case 'productivity':
+      return { color: t.accent, bg: t.accentBg };
+  }
+}
+
+function categoryIcon(category: Category, color: string, size: number): JSX.Element {
+  switch (category) {
+    case 'health':
+    case 'social':
+      return <HeartIcon size={size} color={color} />;
+    case 'mental':
+    case 'finance':
+      return <BrainIcon size={size} color={color} />;
+    case 'productivity':
+      return <SparkleIcon size={size} color={color} sw={2} />;
+  }
+}
+
+function titleCase(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 interface BonusCardProps {
-  category: 'health' | 'mental';
+  category: Category;
   title: string;
   mins: number;
   pts: number;
@@ -343,14 +391,8 @@ interface BonusCardProps {
 }
 
 const BonusCard = ({ category, title, mins, pts, t, onPress }: BonusCardProps): JSX.Element => {
-  const catColor = category === 'health' ? t.catHealth : t.catMental;
-  const catBg = category === 'health' ? t.catHealthBg : t.catMentalBg;
-  const catIcon =
-    category === 'health' ? (
-      <HeartIcon size={18} color={catColor} />
-    ) : (
-      <BrainIcon size={18} color={catColor} />
-    );
+  const { color: catColor, bg: catBg } = categoryColors(category, t);
+  const catIcon = categoryIcon(category, catColor, 18);
   return (
     <Pressable
       accessibilityRole="button"
@@ -449,17 +491,21 @@ const FeedbackButton = ({ label, icon, selected, onPress, t }: FeedbackButtonPro
 // Completed (celebratory) card — replaces main card after Mark as done
 // ---------------------------------------------------------------------------
 
-type FeedbackId = 'easy' | 'great' | 'hard';
+type FeedbackId = 'easy' | 'great' | 'too_hard' | 'not_applicable';
 
 interface CompletedCardProps {
   streak: number;
   points: number;
   feedback: FeedbackId | null;
   setFeedback: (id: FeedbackId) => void;
+  // Non-null when the most recent persistence attempt failed; renders below
+  // the buttons so the user can retry by tapping again.
+  feedbackError: string | null;
   t: Theme;
 }
 
-const CompletedCard = ({ streak, points, feedback, setFeedback, t }: CompletedCardProps): JSX.Element => {
+const CompletedCard = ({ streak, points, feedback, setFeedback, feedbackError, t }: CompletedCardProps): JSX.Element => {
+  const { t: translate } = useTranslation();
   // Three coordinated entrance animations:
   //   cardIn      — 320ms fade + 6px translateY  (Material standard)
   //   medallionIn — 360ms scale 0.6 → 1.06 → 1   (overshoot for delight)
@@ -680,27 +726,48 @@ const CompletedCard = ({ streak, points, feedback, setFeedback, t }: CompletedCa
         </Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <FeedbackButton
-            label="Too easy"
+            label={translate('home.feedback.easy')}
             icon={<ThumbsUpIcon />}
             selected={feedback === 'easy'}
             onPress={(): void => setFeedback('easy')}
             t={t}
           />
           <FeedbackButton
-            label="Just right"
+            label={translate('home.feedback.great')}
             icon={<CheckIcon size={18} sw={2} />}
             selected={feedback === 'great'}
             onPress={(): void => setFeedback('great')}
             t={t}
           />
           <FeedbackButton
-            label="Too hard"
+            label={translate('home.feedback.too_hard')}
             icon={<ThumbsDownIcon />}
-            selected={feedback === 'hard'}
-            onPress={(): void => setFeedback('hard')}
+            selected={feedback === 'too_hard'}
+            onPress={(): void => setFeedback('too_hard')}
+            t={t}
+          />
+          <FeedbackButton
+            label={translate('home.feedback.not_applicable')}
+            icon={<BanIcon />}
+            selected={feedback === 'not_applicable'}
+            onPress={(): void => setFeedback('not_applicable')}
             t={t}
           />
         </View>
+        {feedbackError ? (
+          <Text
+            style={{
+              marginTop: 8,
+              fontSize: 12,
+              color: '#DC2626',
+              fontFamily: FONT_BODY_MEDIUM,
+              fontWeight: '500',
+              textAlign: 'center',
+            }}
+          >
+            {feedbackError}
+          </Text>
+        ) : null}
       </View>
     </Animated.View>
   );
@@ -712,12 +779,39 @@ const CompletedCard = ({ streak, points, feedback, setFeedback, t }: CompletedCa
 
 export type TabId = 'home' | 'history' | 'profile';
 
+type Difficulty = 'easy' | 'medium' | 'hard';
+type Status = 'pending' | 'done' | 'skipped';
+
+export interface HomeChallenge {
+  id: string;
+  title: string;
+  description: string;
+  category: Category;
+  difficulty: Difficulty;
+  duration_min: number;
+  points: number;
+  status: Status;
+  // Persisted feedback. Same enum as the DB's challenges.feedback column
+  // (one source of truth — no UI/DB divergence to map between).
+  feedback?: FeedbackId | null;
+}
+
 export interface HomeScreenProps {
   name: string;
   streak: number;
   theme: ThemeName;
   active?: TabId;
   onTab?: (id: TabId) => void;
+  // Fired the first time the user taps "Mark as done". Side-effects only —
+  // the visual completed state is still driven by internal `done` state.
+  onMarkDone?: () => void;
+  // Fired when the user picks a feedback chip on the completed card. Returns
+  // a Promise so HomeScreen can roll back the optimistic state on DB failure.
+  onFeedback?: (id: FeedbackId) => Promise<{ error: string | null }>;
+  // Today's main challenge. Null/undefined → render "preparing" empty state.
+  mainChallenge?: HomeChallenge | null;
+  // Bonus challenges (max 2 rendered). Empty array hides the bonus section.
+  bonusChallenges?: HomeChallenge[];
 }
 
 export default function HomeScreen({
@@ -726,26 +820,77 @@ export default function HomeScreen({
   theme,
   active = 'home',
   onTab,
+  onMarkDone,
+  onFeedback,
+  mainChallenge,
+  bonusChallenges,
 }: HomeScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
-  const [done, setDone] = useState(false);
-  const [feedback, setFeedback] = useState<FeedbackId | null>(null);
-  const displayStreak = done ? streak + 1 : streak;
+  const { t: translate, i18n } = useTranslation();
 
-  // Auto-dismiss the completed state after 3.5s — but pause once the user
-  // has tapped a feedback chip, so they can read their own selection.
+  // Optimistic flag covers the gap between user tap and the next fetchToday
+  // returning the row with status='done'. Persistent completion is driven by
+  // the row's status — so a cold start where status is already 'done' renders
+  // the completed card immediately, with no transition through the active state.
+  const [optimisticDone, setOptimisticDone] = useState(false);
+  // Optimistic feedback mirrors the same pattern: tap → flip immediately;
+  // hydrate from the persisted row on cold start; reset on day rollover. null
+  // means "no optimistic override active — defer to mainChallenge.feedback".
+  const [optimisticFeedback, setOptimisticFeedback] = useState<FeedbackId | null>(null);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+
+  const persistedDone = mainChallenge?.status === 'done';
+  const done = optimisticDone || persistedDone;
+  const displayFeedback: FeedbackId | null =
+    optimisticFeedback ?? mainChallenge?.feedback ?? null;
+
+  // Reset optimistic + feedback when the challenge id changes (day rollover).
+  // Without this, a stale optimisticDone from yesterday would carry into
+  // today's fresh main row and incorrectly show CompletedCard for it.
   useEffect(() => {
-    if (!done) return;
-    if (feedback) return;
-    const id = setTimeout(() => {
-      setDone(false);
-      setFeedback(null);
-    }, 3500);
-    return (): void => clearTimeout(id);
-  }, [done, feedback]);
+    setOptimisticDone(false);
+    setOptimisticFeedback(null);
+    setFeedbackError(null);
+  }, [mainChallenge?.id]);
 
-  // Demo greeting matches handoff fixture; in production this branches on hour.
-  const greeting = 'Good morning';
+  // Wraps setOptimisticDone + setOptimisticFeedback so the existing call sites
+  // stay one-liners while we also notify the route to persist.
+  const handleMarkDone = (): void => {
+    setOptimisticDone(true);
+    onMarkDone?.();
+  };
+  const setFeedback = (id: FeedbackId): void => {
+    // Capture the value the UI is showing right now so we can roll back to it
+    // if the DB write fails. `displayFeedback` is the source of truth — it
+    // already collapses optimistic + persisted into the visible value.
+    const prev = displayFeedback;
+    setOptimisticFeedback(id);
+    setFeedbackError(null);
+    void (async (): Promise<void> => {
+      const result = await onFeedback?.(id);
+      if (result?.error) {
+        setOptimisticFeedback(prev);
+        setFeedbackError("Couldn't save feedback. Tap to retry.");
+      }
+    })();
+  };
+  // Streak is kept as the persisted value — the trigger on challenges.update
+  // bumps user_stats.current_streak, so a refetch picks up the new number.
+  // Optimistic +1 was demo behavior that doesn't survive cold start either way.
+  const displayStreak = streak;
+
+  // Locale-aware date for the eyebrow. uppercase styling is applied by the
+  // text style downstream; this just produces the cased base string.
+  const locale = i18n.language === 'bg' ? 'bg-BG' : 'en-GB';
+  const dateEyebrow = useMemo(
+    () =>
+      new Date().toLocaleDateString(locale, {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+      }),
+    [locale],
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -767,7 +912,7 @@ export default function HomeScreen({
               fontFamily: FONT_BODY_SEMI,
             }}
           >
-            Wednesday · May 6
+            {dateEyebrow}
           </Text>
           <Text
             style={{
@@ -779,7 +924,7 @@ export default function HomeScreen({
               lineHeight: 32,
             }}
           >
-            {greeting}, {name}
+            {translate('home.greeting', { name })}
           </Text>
         </View>
 
@@ -793,17 +938,7 @@ export default function HomeScreen({
           <Eyebrow t={t}>Today's challenge</Eyebrow>
         </View>
 
-        {done ? (
-          <View style={{ marginBottom: 24 }}>
-            <CompletedCard
-              streak={displayStreak}
-              points={15}
-              feedback={feedback}
-              setFeedback={setFeedback}
-              t={t}
-            />
-          </View>
-        ) : (
+        {!mainChallenge ? (
           <View
             style={{
               backgroundColor: t.surface,
@@ -813,87 +948,137 @@ export default function HomeScreen({
               ...shadow(t),
             }}
           >
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 14,
-              }}
-            >
-              <CategoryBadge
-                icon={<HeartIcon size={13} color={t.catHealth} />}
-                label="Health"
-                color={t.catHealth}
-                bg={t.catHealthBg}
-              />
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <SparkleIcon size={13} color={t.accent} sw={2} />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    color: t.accent,
-                    fontWeight: '600',
-                    fontFamily: FONT_BODY_SEMI,
-                    fontVariant: ['tabular-nums'],
-                  }}
-                >
-                  +15 pts
-                </Text>
-              </View>
-            </View>
-
             <Text
               style={{
-                fontFamily: FONT_DISPLAY,
-                fontSize: 22,
-                fontWeight: '700',
-                color: t.fg1,
-                lineHeight: 28,
-                marginBottom: 10,
-                letterSpacing: -0.44,
-              }}
-            >
-              20-min walk without your phone
-            </Text>
-
-            <Text
-              style={{
+                fontFamily: FONT_BODY,
                 fontSize: 14,
                 color: t.fg2,
                 lineHeight: 21,
-                marginBottom: 18,
-                fontFamily: FONT_BODY,
-                fontWeight: '400',
+                textAlign: 'center',
               }}
             >
-              Leave it on the desk. Notice three things you haven't seen on your usual block.
+              Your challenges are being prepared...
             </Text>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 18 }}>
-              <MetaPill icon={<ClockIcon color={t.fg3} />} t={t}>
-                20 min
-              </MetaPill>
-              <View style={{ width: 3, height: 3, borderRadius: 99, backgroundColor: t.fg4 }} />
-              <MetaPill icon={<SparkleIcon color={t.fg3} />} t={t}>
-                Easy
-              </MetaPill>
-            </View>
-
-            <PrimaryButton onPress={(): void => setDone(true)} t={t}>
-              Mark as done
-            </PrimaryButton>
           </View>
+        ) : done ? (
+          <View style={{ marginBottom: 24 }}>
+            <CompletedCard
+              streak={displayStreak}
+              points={mainChallenge.points}
+              feedback={displayFeedback}
+              setFeedback={setFeedback}
+              feedbackError={feedbackError}
+              t={t}
+            />
+          </View>
+        ) : (
+          (() => {
+            const mainCats = categoryColors(mainChallenge.category, t);
+            return (
+              <View
+                style={{
+                  backgroundColor: t.surface,
+                  borderRadius: 16,
+                  padding: 20,
+                  marginBottom: 24,
+                  ...shadow(t),
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 14,
+                  }}
+                >
+                  <CategoryBadge
+                    icon={categoryIcon(mainChallenge.category, mainCats.color, 13)}
+                    label={titleCase(mainChallenge.category)}
+                    color={mainCats.color}
+                    bg={mainCats.bg}
+                  />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <SparkleIcon size={13} color={t.accent} sw={2} />
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: t.accent,
+                        fontWeight: '600',
+                        fontFamily: FONT_BODY_SEMI,
+                        fontVariant: ['tabular-nums'],
+                      }}
+                    >
+                      +{mainChallenge.points} pts
+                    </Text>
+                  </View>
+                </View>
+
+                <Text
+                  style={{
+                    fontFamily: FONT_DISPLAY,
+                    fontSize: 22,
+                    fontWeight: '700',
+                    color: t.fg1,
+                    lineHeight: 28,
+                    marginBottom: 10,
+                    letterSpacing: -0.44,
+                  }}
+                >
+                  {mainChallenge.title}
+                </Text>
+
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: t.fg2,
+                    lineHeight: 21,
+                    marginBottom: 18,
+                    fontFamily: FONT_BODY,
+                    fontWeight: '400',
+                  }}
+                >
+                  {mainChallenge.description}
+                </Text>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 18 }}>
+                  <MetaPill icon={<ClockIcon color={t.fg3} />} t={t}>
+                    {`${mainChallenge.duration_min} min`}
+                  </MetaPill>
+                  <View style={{ width: 3, height: 3, borderRadius: 99, backgroundColor: t.fg4 }} />
+                  <MetaPill icon={<SparkleIcon color={t.fg3} />} t={t}>
+                    {titleCase(mainChallenge.difficulty)}
+                  </MetaPill>
+                </View>
+
+                <PrimaryButton onPress={handleMarkDone} t={t}>
+                  Mark as done
+                </PrimaryButton>
+              </View>
+            );
+          })()
         )}
 
         {/* Bonus */}
-        <View style={{ marginBottom: 12 }}>
-          <Eyebrow t={t}>Bonus challenges</Eyebrow>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <BonusCard category="health" title="Drink 2L of water before noon" mins={1} pts={15} t={t} />
-          <BonusCard category="mental" title="Write 3 things you're grateful for" mins={5} pts={15} t={t} />
-        </View>
+        {bonusChallenges && bonusChallenges.length > 0 ? (
+          <>
+            <View style={{ marginBottom: 12 }}>
+              <Eyebrow t={t}>Bonus challenges</Eyebrow>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {bonusChallenges.slice(0, 2).map((b) => (
+                <BonusCard
+                  key={b.id}
+                  category={b.category}
+                  title={b.title}
+                  mins={b.duration_min}
+                  pts={b.points}
+                  t={t}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
       </ScrollView>
 
       {/* Tab bar */}

@@ -373,6 +373,12 @@ export interface SurveyScreenProps {
   initialSelected?: SurveyOptionId[];
   onBack?: () => void;
   onContinue?: (selected: SurveyOptionId[]) => void;
+  // True while the route persists the answers — disables the CTA so a second
+  // tap can't kick off a parallel UPDATE.
+  submitting?: boolean;
+  // When non-empty, replaces the bottom helper line with a red error message.
+  // Driven by the route (validation or DB write failure).
+  errorMessage?: string;
 }
 
 export default function SurveyScreen({
@@ -383,6 +389,8 @@ export default function SurveyScreen({
   initialSelected = ['physical', 'mental'],
   onBack,
   onContinue,
+  submitting = false,
+  errorMessage,
 }: SurveyScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
   const [selected, setSelected] = useState<SurveyOptionId[]>(initialSelected);
@@ -391,7 +399,7 @@ export default function SurveyScreen({
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const canContinue = selected.length > 0;
+  const canContinue = selected.length > 0 && !submitting;
   const fraction = total > 0 ? step / total : 0;
 
   return (
@@ -496,16 +504,17 @@ export default function SurveyScreen({
         <Text
           style={{
             fontSize: 12,
-            color: t.fg3,
+            color: errorMessage ? '#DC2626' : t.fg3,
             fontWeight: '500',
             textAlign: 'center',
             marginBottom: 10,
             fontFamily: FONT_BODY_MEDIUM,
           }}
         >
-          {selected.length === 0
-            ? 'Select at least one to continue'
-            : `${selected.length} selected · You can change this later`}
+          {errorMessage
+            ?? (selected.length === 0
+              ? 'Select at least one to continue'
+              : `${selected.length} selected · You can change this later`)}
         </Text>
 
         <Pressable
