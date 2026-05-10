@@ -1,7 +1,46 @@
-import Anthropic from '@anthropic-ai/sdk';
+// DEPRECATED — the canonical generation path is the Supabase Edge Function
+// at supabase/functions/generate-challenge/index.ts. This module remains as a
+// dev/debug tool exercised by server/scripts/testGeneration.ts and as
+// scaffolding for a possible future cron job (server/services/scheduler.ts is
+// not currently wired to a runtime). Behavior is kept consistent with the
+// Edge Function (OpenAI gpt-4o-mini + Structured Outputs) so the test script
+// reflects what real users see — but new features should land in the Edge
+// Function first and be ported here only if the dev script needs them.
+
 import { supabase } from '../db/supabaseClient';
 
-const client = new Anthropic();
+// ---------------------------------------------------------------------------
+// OpenAI config — must stay in sync with supabase/functions/generate-challenge.
+// Per-token rates from https://openai.com/api/pricing/.
+// ---------------------------------------------------------------------------
+
+const OPENAI_MODEL = 'gpt-4o-mini';
+const OPENAI_COST_PER_PROMPT_TOKEN = 0.00000015; // $0.15 / 1M
+const OPENAI_COST_PER_COMPLETION_TOKEN = 0.00000060; // $0.60 / 1M
+
+const RESPONSE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['main'],
+  properties: {
+    main: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['title', 'description', 'category', 'difficulty', 'duration_min', 'points'],
+      properties: {
+        title: { type: 'string', maxLength: 60 },
+        description: { type: 'string' },
+        category: {
+          type: 'string',
+          enum: ['health', 'mental', 'productivity', 'social', 'finance'],
+        },
+        difficulty: { type: 'string', enum: ['easy', 'medium', 'hard'] },
+        duration_min: { type: 'integer', minimum: 1, maximum: 60 },
+        points: { type: 'integer', enum: [15, 25, 40] },
+      },
+    },
+  },
+} as const;
 
 const SYSTEM_PROMPT = `You are a personal wellness coach generating a single daily micro-challenge.
 
@@ -91,6 +130,13 @@ interface ChallengeBankRow {
 
 // --- User message builder ---
 
+function languageQualityInstruction(language: string): string {
+  if (language === 'bg') {
+    return 'Write in natural conversational Bulgarian. Use idiomatic phrasing, not literal translations from English. Avoid awkward word-for-word constructions. Double-check spelling and grammar.';
+  }
+  return 'Write in clear, conversational English.';
+}
+
 export function buildUserMessage(
   profile: UserProfile,
   recent: RecentChallenge[],
@@ -137,7 +183,9 @@ RECENT CHALLENGES (do not repeat any of these):
 ${recentLines || '- (none)'}
 
 TODAY: ${todayISO()}
-SEASON: ${getCurrentSeason()}`;
+SEASON: ${getCurrentSeason()}
+
+LANGUAGE QUALITY: ${languageQualityInstruction(profile.language)}`;
 }
 
 function getExperienceLevel(days: number): string {
@@ -191,17 +239,43 @@ export async function generateForUser(userId: string): Promise<void> {
 
     const userMessage = buildUserMessage(profile, recent, stats);
 
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 600,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error('OPENAI_API_KEY not set');
+
+    const aiResp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userMessage },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: { name: 'daily_challenge', strict: true, schema: RESPONSE_SCHEMA },
+        },
+        max_tokens: 400,
+        temperature: 0.8,
+      }),
     });
 
-    const firstBlock = response.content[0];
-    const raw = firstBlock && firstBlock.type === 'text' ? firstBlock.text.trim() : '';
-    const clean = raw.replace(/```json|```/g, '').trim();
-    const parsed: unknown = JSON.parse(clean);
+    if (!aiResp.ok) {
+      throw new Error(`OpenAI ${aiResp.status}: ${await aiResp.text()}`);
+    }
+
+    const aiJson = (await aiResp.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
+    const content = aiJson.choices?.[0]?.message?.content;
+    if (typeof content !== 'string' || content.length === 0) {
+      throw new Error('OpenAI returned empty content');
+    }
+    const parsed: unknown = JSON.parse(content);
     assertValidResult(parsed);
 
     const { error: insertError } = await supabase.from('challenges').insert([
@@ -210,12 +284,13 @@ export async function generateForUser(userId: string): Promise<void> {
 
     if (insertError) throw insertError;
 
-    const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
-    await logGeneration(userId, today, tokensUsed, 'success');
+    const promptTokens = aiJson.usage?.prompt_tokens ?? 0;
+    const completionTokens = aiJson.usage?.completion_tokens ?? 0;
+    await logGeneration(userId, today, promptTokens, completionTokens, 'success');
   } catch (error) {
     console.error(`[Generator] Failed for ${userId}:`, error);
     await insertFallbackChallenges(userId, today);
-    await logGeneration(userId, today, 0, 'fallback', errorMessage(error));
+    await logGeneration(userId, today, 0, 0, 'fallback', errorMessage(error));
   }
 }
 
@@ -278,8 +353,9 @@ export async function generateForAllActiveUsers(): Promise<void> {
 
   console.log(`[Generator] Processing ${users.length} users for ${tomorrowStr}`);
 
-  // 1300ms ≈ 46 req/min, safely under the Anthropic Tier 1 ceiling of 50 req/min
-  // for Haiku. Bump to a smaller value (e.g. 600ms ≈ 100 req/min) on Tier 2.
+  // 1300ms ≈ 46 req/min. The OpenAI Tier 1 ceiling for gpt-4o-mini is much
+  // higher (~500 req/min), so this pacing is conservative — kept as a safety
+  // margin in case this path is revived for a large batch run.
   for (const { id } of users) {
     await generateForUser(id);
     await sleep(1300);
@@ -405,18 +481,22 @@ async function insertFallbackChallenges(userId: string, date: string): Promise<v
 async function logGeneration(
   userId: string,
   date: string,
-  tokens: number,
+  promptTokens: number,
+  completionTokens: number,
   status: 'success' | 'fallback' | 'error',
   error?: string,
 ): Promise<void> {
-  const HAIKU_COST_PER_TOKEN = 0.0000008;
+  const tokens = promptTokens + completionTokens;
+  const cost =
+    promptTokens * OPENAI_COST_PER_PROMPT_TOKEN +
+    completionTokens * OPENAI_COST_PER_COMPLETION_TOKEN;
   const { error: logError } = await supabase.from('generation_log').upsert(
     {
       user_id: userId,
       date,
       status,
       tokens_used: tokens,
-      cost_usd: tokens * HAIKU_COST_PER_TOKEN,
+      cost_usd: cost,
       error_message: error ?? null,
     },
     { onConflict: 'user_id,date' },

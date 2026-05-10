@@ -3,7 +3,8 @@
 //
 // Requires: react-native-svg (install via `npx expo install react-native-svg`).
 
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Easing,
@@ -83,13 +84,25 @@ export interface SurveyOption {
   desc: string;
 }
 
-const DEFAULT_OPTIONS: SurveyOption[] = [
-  { id: 'physical', label: 'Physical health', desc: 'Movement, sleep, energy' },
-  { id: 'mental', label: 'Mental health', desc: 'Calm, focus, stress' },
-  { id: 'productivity', label: 'Productivity', desc: 'Get things done' },
-  { id: 'social', label: 'Social life', desc: 'Relationships, connection' },
-  { id: 'finances', label: 'Finances', desc: 'Money habits' },
-  { id: 'growth', label: 'Personal growth', desc: 'Curiosity, learning' },
+// Survey ids ↔ i18n keys aren't 1:1 — `physical` reads from `onboarding.goals.health`
+// (matches the db's `health` value, set up so a future option-list edit doesn't
+// require a translation key rename). Keep this map in sync with mapGoalToDbValue.
+const OPTION_I18N_KEY: Record<SurveyOptionId, string> = {
+  physical: 'health',
+  mental: 'mental',
+  productivity: 'productivity',
+  social: 'social',
+  finances: 'finance',
+  growth: 'growth',
+};
+
+const OPTION_ORDER: readonly SurveyOptionId[] = [
+  'physical',
+  'mental',
+  'productivity',
+  'social',
+  'finances',
+  'growth',
 ];
 
 // ---------------------------------------------------------------------------
@@ -385,7 +398,7 @@ export default function SurveyScreen({
   theme,
   step = 2,
   total = 5,
-  options = DEFAULT_OPTIONS,
+  options,
   initialSelected = ['physical', 'mental'],
   onBack,
   onContinue,
@@ -393,7 +406,23 @@ export default function SurveyScreen({
   errorMessage,
 }: SurveyScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
+  const { t: translate } = useTranslation();
   const [selected, setSelected] = useState<SurveyOptionId[]>(initialSelected);
+
+  // Build options from i18n unless the caller passed an explicit list (tests).
+  // useMemo keeps row references stable across re-renders so the option list
+  // doesn't re-mount every keystroke or focus change.
+  const resolvedOptions = useMemo<SurveyOption[]>(() => {
+    if (options) return options;
+    return OPTION_ORDER.map((id) => {
+      const key = OPTION_I18N_KEY[id];
+      return {
+        id,
+        label: translate(`onboarding.goals.${key}`),
+        desc: translate(`onboarding.goals.${key}_desc`),
+      };
+    });
+  }, [options, translate]);
 
   const toggle = (id: SurveyOptionId): void => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -409,7 +438,7 @@ export default function SurveyScreen({
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={translate('common.a11y.back')}
             onPress={onBack}
             hitSlop={12}
             style={{ padding: 4 }}
@@ -444,7 +473,7 @@ export default function SurveyScreen({
             fontFamily: FONT_BODY_BOLD,
           }}
         >
-          Step {step} · Focus areas
+          {translate('onboarding.step_eyebrow', { step })}
         </Text>
         <Text
           accessibilityRole="header"
@@ -458,7 +487,7 @@ export default function SurveyScreen({
             lineHeight: 30,
           }}
         >
-          What do you want to improve?
+          {translate('onboarding.title')}
         </Text>
         <Text
           style={{
@@ -469,7 +498,7 @@ export default function SurveyScreen({
             fontFamily: FONT_BODY,
           }}
         >
-          Pick all that apply. We'll tune your daily challenges around these.
+          {translate('onboarding.subhead')}
         </Text>
       </View>
 
@@ -479,7 +508,7 @@ export default function SurveyScreen({
         contentContainerStyle={{ paddingTop: 8, paddingHorizontal: 20, paddingBottom: 20, gap: 10 }}
         showsVerticalScrollIndicator={false}
       >
-        {options.map((opt) => (
+        {resolvedOptions.map((opt) => (
           <SurveyOptionRow
             key={opt.id}
             option={opt}
@@ -513,8 +542,8 @@ export default function SurveyScreen({
         >
           {errorMessage
             ?? (selected.length === 0
-              ? 'Select at least one to continue'
-              : `${selected.length} selected · You can change this later`)}
+              ? translate('onboarding.helper_select_one')
+              : translate('onboarding.helper_selected_count', { count: selected.length }))}
         </Text>
 
         <Pressable
@@ -547,7 +576,7 @@ export default function SurveyScreen({
               letterSpacing: -0.08,
             }}
           >
-            Continue
+            {translate('common.continue')}
           </Text>
           {canContinue && <ArrowRightIcon size={16} color={t.onAccent} />}
         </Pressable>

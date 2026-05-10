@@ -1,71 +1,102 @@
 {
   "common": {
-    "continue": "",
-    "cancel": "",
-    "back": "",
-    "next": "",
-    "done": "",
-    "save": "",
-    "loading": "",
-    "error": "",
-    "retry": ""
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "save": "Save",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "a11y": {
+      "back": "Go back"
+    }
+  },
+  "nav": {
+    "home": "Home",
+    "history": "History",
+    "profile": "Profile"
   },
   "welcome": {
-    "tagline": "",
-    "tagline_highlight": "",
-    "supporting": "",
-    "cta_get_started": "",
-    "cta_sign_in_prefix": "",
-    "cta_sign_in": "",
-    "trust_line": ""
+    "wordmark": "Daily Challenges",
+    "tagline_prefix": "The only challenge app that",
+    "tagline_highlight": "actually learns",
+    "tagline_suffix": "from you.",
+    "supporting": "One small thing a day. Designed around the time you actually have.",
+    "cta_get_started": "Get started",
+    "cta_sign_in_prefix": "I already have an account",
+    "cta_sign_in": "Sign in",
+    "trust_line": "No ads · No tracking · 30 sec setup"
   },
   "auth": {
-    "login_title": "",
-    "login_subtitle": "",
-    "register_title": "",
-    "register_subtitle": "",
-    "email": "",
-    "password": "",
-    "confirm_password": "",
-    "name": "",
-    "forgot_password": "",
-    "log_in": "",
-    "create_account": "",
-    "or": "",
-    "continue_with_apple": "",
-    "continue_with_google": "",
-    "no_account_prefix": "",
-    "no_account_cta": "",
-    "have_account_prefix": "",
-    "have_account_cta": "",
-    "privacy_note": "",
+    "login_title": "Welcome back",
+    "login_subtitle": "Pick up where you left off.",
+    "register_title": "Create your account",
+    "register_subtitle": "One small thing a day. Takes 30 seconds.",
+    "email": "Email",
+    "password": "Password",
+    "confirm_password": "Confirm password",
+    "name": "Name",
+    "forgot_password": "Forgot password?",
+    "log_in": "Log in",
+    "create_account": "Create account",
+    "or": "or",
+    "continue_with_apple": "Continue with Apple",
+    "continue_with_google": "Continue with Google",
+    "no_account_prefix": "New here?",
+    "no_account_cta": "Create an account",
+    "have_account_prefix": "Already have an account?",
+    "have_account_cta": "Log in",
+    "privacy_note_prefix": "By continuing you agree to our ",
+    "privacy_note_terms": "Terms",
+    "privacy_note_middle": " and ",
+    "privacy_note_privacy": "Privacy",
+    "privacy_note_suffix": ". We never sell your data and won't email you for marketing.",
+    "confirm_email_title": "Check your email",
+    "confirm_email_body": "Confirm your address, then sign in.",
+    "fields": {
+      "name": "Name"
+    },
+    "placeholders": {
+      "name": "Your name",
+      "email": "you@example.com",
+      "password_min": "At least 6 characters",
+      "confirm_password": "Type it again"
+    },
+    "a11y": {
+      "password_show": "Show password",
+      "password_hide": "Hide password"
+    },
     "errors": {
-      "email_invalid": "",
-      "password_too_short": "",
-      "passwords_dont_match": "",
-      "name_required": ""
+      "email_invalid": "Enter a valid email",
+      "password_too_short": "Password must be at least 6 characters",
+      "passwords_dont_match": "Passwords don't match",
+      "name_required": "Please enter your name",
+      "sign_in_failed_title": "Sign in failed",
+      "sign_up_failed_title": "Sign up failed"
     }
   },
   "onboarding": {
-    "title": "",
-    "step": "",
-    "eyebrow": "",
-    "subhead": "",
-    "helper_select_one": "",
-    "helper_selected_count": "",
+    "title": "What do you want to improve?",
+    "step_eyebrow": "Step {{step}} · Focus areas",
+    "subhead": "Pick all that apply. We'll tune your daily challenges around these.",
+    "helper_select_one": "Select at least one to continue",
+    "helper_selected_count_one": "{{count}} selected · You can change this later",
+    "helper_selected_count_other": "{{count}} selected · You can change this later",
     "goals": {
-      "health": "",
-      "health_desc": "",
-      "mental": "",
-      "mental_desc": "",
-      "productivity": "",
-      "productivity_desc": "",
-      "social": "",
-      "social_desc": "",
-      "finance": "",
-      "finance_desc": "",
-      "growth": "",
-      "growth_desc": ""
+      "health": "Physical health",
+      "health_desc": "Movement, sleep, energy",
+      "mental": "Mental health",
+      "mental_desc": "Calm, focus, stress",
+      "productivity": "Productivity",
+      "productivity_desc": "Get things done",
+      "social": "Social life",
+      "social_desc": "Relationships, connection",
+      "finance": "Finances",
+      "finance_desc": "Money habits",
+      "growth": "Personal growth",
+      "growth_desc": "Curiosity, learning"
     },
     "errors": {
       "goals_required": "Pick at least one focus area to continue.",
@@ -74,18 +105,18 @@
   },
   "home": {
     "greeting": "Good morning, {{name}}",
-    "greeting_morning": "",
-    "greeting_afternoon": "",
-    "greeting_evening": "",
     "streak_count_one": "{{count}} day",
     "streak_count_other": "{{count}} days",
     "streak_label": "streak",
     "main_challenge": "Today's challenge",
     "mark_done": "Mark as done",
-    "completed_headline": "",
-    "completed_subline": "",
-    "points_earned": "",
-    "feedback_question": "",
+    "completed_headline": "Done. Keep it going.",
+    "completed_subline": "That's challenge {{count}} in a row.",
+    "points_earned": "points earned",
+    "day_streak_label": "day streak",
+    "points_suffix": "pts",
+    "feedback_question": "How was it?",
+    "feedback_save_error": "Couldn't save feedback. Tap to retry.",
     "challenge_me_button": "Challenge me!",
     "challenge_me_hook": "Ready for today's challenge?",
     "challenge_me_subline": "Based on your goals and history",
@@ -102,10 +133,10 @@
       "not_applicable": "Not for me"
     },
     "meta": {
-      "minutes": "",
-      "easy": "",
-      "medium": "",
-      "hard": ""
+      "minutes": "{{count}} min",
+      "easy": "Easy",
+      "medium": "Medium",
+      "hard": "Hard"
     }
   },
   "history": {
@@ -119,6 +150,10 @@
     "legend_done": "Done",
     "legend_today": "Today",
     "legend_skipped": "Skipped",
+    "a11y": {
+      "prev_month": "Previous month",
+      "next_month": "Next month"
+    },
     "modal": {
       "close": "Close",
       "status": {
@@ -143,7 +178,17 @@
     "language": "Language",
     "plan": "Plan",
     "subscription": "Subscription",
-    "free_upgrade": "Free · Upgrade"
+    "free_upgrade": "Free · Upgrade",
+    "goals_selected_one": "{{count}} selected",
+    "goals_selected_other": "{{count}} selected",
+    "language_modal": {
+      "title": "Choose language",
+      "close": "Close",
+      "error": "Couldn't save. Try again."
+    },
+    "a11y": {
+      "settings": "Settings"
+    }
   },
   "categories": {
     "health": "Health",
@@ -151,10 +196,5 @@
     "productivity": "Productivity",
     "social": "Social",
     "finance": "Finance"
-  },
-  "tabs": {
-    "home": "",
-    "history": "",
-    "profile": ""
   }
 }

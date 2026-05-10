@@ -3,6 +3,7 @@
 // every (tabs) route renders the same bar without duplicating its markup.
 
 import { type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 
@@ -64,6 +65,7 @@ export interface BottomTabBarProps {
 
 export default function BottomTabBar({ active, theme, onTab }: BottomTabBarProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
+  const { t: translate } = useTranslation();
 
   return (
     <View
@@ -81,9 +83,9 @@ export default function BottomTabBar({ active, theme, onTab }: BottomTabBarProps
       <View style={{ flexDirection: 'row', height: 60 }}>
         {(
           [
-            { id: 'home', label: 'Home', Icon: HomeIcon },
-            { id: 'history', label: 'History', Icon: CalIcon },
-            { id: 'profile', label: 'Profile', Icon: UserIcon },
+            { id: 'home', labelKey: 'nav.home', Icon: HomeIcon },
+            { id: 'history', labelKey: 'nav.history', Icon: CalIcon },
+            { id: 'profile', labelKey: 'nav.profile', Icon: UserIcon },
           ] as const
         ).map((tab) => {
           const sel = tab.id === active;
@@ -109,7 +111,7 @@ export default function BottomTabBar({ active, theme, onTab }: BottomTabBarProps
                   fontFamily: sel ? FONT_BODY_SEMI : FONT_BODY_MEDIUM,
                 }}
               >
-                {tab.label}
+                {translate(tab.labelKey)}
               </Text>
             </Pressable>
           );

@@ -3,9 +3,10 @@
 //
 // Requires: react-native-svg (install via `npx expo install react-native-svg`).
 
-import { cloneElement, type JSX, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, useState, type JSX, type ReactElement, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -31,6 +32,9 @@ const THEMES = {
     accent: '#D97706',
     accentBg: '#FEF6E7',
     accentBorder: '#FBD08A',
+    onAccent: '#FFFFFF',
+    overlay: 'rgba(15,30,25,0.45)',
+    error: '#B5523F',
   },
   dark: {
     bg: '#15161A',
@@ -44,6 +48,9 @@ const THEMES = {
     accent: '#F5B14E',
     accentBg: 'rgba(245,177,78,0.12)',
     accentBorder: 'rgba(245,177,78,0.4)',
+    onAccent: '#15161A',
+    overlay: 'rgba(0,0,0,0.55)',
+    error: '#FC8181',
   },
 } as const;
 
@@ -103,6 +110,12 @@ const CrownIcon = ({ size = 18, color = 'currentColor', sw = 1.5 }: IconProps): 
 const ChevR = ({ size = 16, color = 'currentColor', sw = 1.5 }: IconProps): JSX.Element => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
     <Path d="m9 18 6-6-6-6" />
+  </Svg>
+);
+
+const CheckIcon = ({ size = 18, color = 'currentColor', sw = 2.5 }: IconProps): JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M20 6 9 17l-5-5" />
   </Svg>
 );
 
@@ -479,6 +492,13 @@ const DEFAULT_WEEK: WeeklyDay[] = [
   { label: 'S', value: 15, today: true },
 ];
 
+export interface LanguageOption {
+  /** ISO 639-1 code stored in user_profiles.language and AsyncStorage. */
+  code: string;
+  /** Self-referential display label (e.g. "English", "Български"). */
+  label: string;
+}
+
 export interface ProfileScreenProps {
   theme: ThemeName;
   name: string;
@@ -496,8 +516,21 @@ export interface ProfileScreenProps {
   onSettings?: () => void;
   onGoals?: () => void;
   onNotificationTime?: () => void;
+  // Legacy tap hook — only fired when no `languageOptions` is supplied. With
+  // the modal flow wired, prefer providing `languageOptions` + `onLanguageChange`.
   onLanguage?: () => void;
   onSubscription?: () => void;
+  /** Options shown in the language picker modal. */
+  languageOptions?: ReadonlyArray<LanguageOption>;
+  /** Currently active language code; controls the checkmark + button styling. */
+  currentLanguageCode?: string;
+  /**
+   * Called when the user picks a language from the modal. Returns ok=true to
+   * close the modal cleanly, ok=false + error to keep it open with an inline
+   * message. The component does NOT apply the change itself — the parent
+   * owns the i18n + DB write.
+   */
+  onLanguageChange?: (code: string) => Promise<{ ok: boolean; error?: string }>;
   /** Optional bottom slot to layer a tab bar on top of the screen. */
   footer?: ReactNode;
 }
@@ -527,16 +560,57 @@ export default function ProfileScreen({
   onNotificationTime,
   onLanguage,
   onSubscription,
+  languageOptions,
+  currentLanguageCode,
+  onLanguageChange,
   footer,
 }: ProfileScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
   const { t: translate } = useTranslation();
   const initials = computeInitials(name);
 
-  const goalsValue = preferences?.goalsCount !== undefined ? `${preferences.goalsCount} selected` : '3 selected';
-  const notifValue = preferences?.notificationTime ?? '8:00 AM';
+  const goalsValue = translate('profile.goals_selected', {
+    count: preferences?.goalsCount ?? 3,
+  });
+  const notifValue = preferences?.notificationTime ?? '8:00';
   const langValue = preferences?.language ?? 'English';
   const subscriptionValue = subscriptionLabel ?? translate('profile.free_upgrade');
+
+  // Modal state lives inside the screen — purely presentational; the parent
+  // owns the actual language change via onLanguageChange.
+  const [langModalOpen, setLangModalOpen] = useState(false);
+  const [langError, setLangError] = useState<string | null>(null);
+  const [langPending, setLangPending] = useState<string | null>(null);
+
+  const hasLanguagePicker =
+    !!languageOptions && languageOptions.length > 0 && !!onLanguageChange;
+
+  const openLanguageModal = (): void => {
+    if (hasLanguagePicker) {
+      setLangError(null);
+      setLangPending(null);
+      setLangModalOpen(true);
+    } else {
+      onLanguage?.();
+    }
+  };
+
+  const handlePickLanguage = async (code: string): Promise<void> => {
+    if (!onLanguageChange || langPending) return;
+    if (code === currentLanguageCode) {
+      setLangModalOpen(false);
+      return;
+    }
+    setLangPending(code);
+    setLangError(null);
+    const result = await onLanguageChange(code);
+    setLangPending(null);
+    if (result.ok) {
+      setLangModalOpen(false);
+    } else {
+      setLangError(result.error ?? translate('profile.language_modal.error'));
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -568,7 +642,7 @@ export default function ProfileScreen({
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Settings"
+            accessibilityLabel={translate('profile.a11y.settings')}
             onPress={onSettings}
             hitSlop={8}
             style={{ padding: 6 }}
@@ -677,7 +751,7 @@ export default function ProfileScreen({
             value={langValue}
             last
             t={t}
-            onPress={onLanguage}
+            onPress={openLanguageModal}
           />
         </View>
 
@@ -698,6 +772,175 @@ export default function ProfileScreen({
       </ScrollView>
 
       {footer}
+
+      {hasLanguagePicker && (
+        <LanguageModal
+          t={t}
+          visible={langModalOpen}
+          options={languageOptions ?? []}
+          currentCode={currentLanguageCode}
+          pendingCode={langPending}
+          error={langError}
+          title={translate('profile.language_modal.title')}
+          closeLabel={translate('profile.language_modal.close')}
+          onPick={(code): void => {
+            void handlePickLanguage(code);
+          }}
+          onClose={(): void => setLangModalOpen(false)}
+        />
+      )}
     </View>
   );
 }
+
+// ---------------------------------------------------------------------------
+// LanguageModal — list of self-referential language labels with checkmark
+// indicator. Parent owns the actual persistence; this stays presentational.
+// ---------------------------------------------------------------------------
+
+interface LanguageModalProps {
+  t: Theme;
+  visible: boolean;
+  options: ReadonlyArray<LanguageOption>;
+  currentCode: string | undefined;
+  /** Code currently being saved — disables the list and shows it as pending. */
+  pendingCode: string | null;
+  error: string | null;
+  title: string;
+  closeLabel: string;
+  onPick: (code: string) => void;
+  onClose: () => void;
+}
+
+const LanguageModal = ({
+  t,
+  visible,
+  options,
+  currentCode,
+  pendingCode,
+  error,
+  title,
+  closeLabel,
+  onPick,
+  onClose,
+}: LanguageModalProps): JSX.Element => (
+  <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    {/* Tap outside dismisses; inner Pressable swallows taps so the card itself
+        doesn't dismiss when the user is picking an option. */}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={closeLabel}
+      onPress={onClose}
+      style={{
+        flex: 1,
+        backgroundColor: t.overlay,
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+      }}
+    >
+      <Pressable
+        onPress={(): void => {}}
+        style={{
+          backgroundColor: t.surface,
+          borderRadius: 16,
+          padding: 20,
+          borderWidth: 1,
+          borderColor: t.border,
+          gap: 12,
+        }}
+      >
+        <Text
+          accessibilityRole="header"
+          style={{
+            fontFamily: FONT_DISPLAY,
+            fontSize: 18,
+            fontWeight: '700',
+            color: t.fg1,
+            letterSpacing: -0.36,
+            marginBottom: 4,
+          }}
+        >
+          {title}
+        </Text>
+
+        <View style={{ gap: 8 }}>
+          {options.map((opt) => {
+            const selected = opt.code === currentCode;
+            const pending = pendingCode === opt.code;
+            const disabled = pendingCode !== null;
+            return (
+              <Pressable
+                key={opt.code}
+                accessibilityRole="button"
+                accessibilityState={{ selected, disabled }}
+                disabled={disabled}
+                onPress={(): void => onPick(opt.code)}
+                style={({ pressed }): ViewStyle => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderColor: selected ? t.accent : t.border,
+                  backgroundColor: selected ? t.accentBg : 'transparent',
+                  opacity: disabled && !pending ? 0.55 : pressed ? 0.85 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    fontSize: 15,
+                    fontWeight: '600',
+                    color: selected ? t.accent : t.fg1,
+                    fontFamily: FONT_BODY_SEMI,
+                  }}
+                >
+                  {opt.label}
+                </Text>
+                {selected && <CheckIcon size={18} color={t.accent} sw={2.4} />}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {error ? (
+          <Text
+            style={{
+              fontSize: 13,
+              color: t.error,
+              fontFamily: FONT_BODY_MEDIUM,
+              fontWeight: '500',
+              textAlign: 'center',
+              marginTop: 4,
+            }}
+          >
+            {error}
+          </Text>
+        ) : null}
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={onClose}
+          style={({ pressed }): ViewStyle => ({
+            marginTop: 6,
+            paddingVertical: 12,
+            alignItems: 'center',
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <Text
+            style={{
+              fontSize: 14,
+              color: t.fg2,
+              fontWeight: '600',
+              fontFamily: FONT_BODY_SEMI,
+            }}
+          >
+            {closeLabel}
+          </Text>
+        </Pressable>
+      </Pressable>
+    </Pressable>
+  </Modal>
+);

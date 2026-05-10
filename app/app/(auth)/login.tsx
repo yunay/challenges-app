@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
 import { useState, type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
 
 import AuthScreen from '@/components/screens/AuthScreen';
 import { useAuthStore } from '@/store/authStore';
 
 export default function LoginRoute(): JSX.Element {
+  const { t } = useTranslation();
   const signIn = useAuthStore((s) => s.signIn);
   const [submitting, setSubmitting] = useState(false);
 
@@ -16,7 +18,7 @@ export default function LoginRoute(): JSX.Element {
     setSubmitting(false);
 
     if (error) {
-      Alert.alert('Sign in failed', error);
+      Alert.alert(t('auth.errors.sign_in_failed_title'), error);
       return;
     }
 

@@ -1,71 +1,102 @@
 {
   "common": {
-    "continue": "",
-    "cancel": "",
-    "back": "",
-    "next": "",
-    "done": "",
-    "save": "",
-    "loading": "",
-    "error": "",
-    "retry": ""
+    "continue": "Продължи",
+    "cancel": "Отказ",
+    "back": "Назад",
+    "next": "Напред",
+    "done": "Готово",
+    "save": "Запази",
+    "loading": "Зареждане…",
+    "error": "Нещо се обърка",
+    "retry": "Опитай пак",
+    "a11y": {
+      "back": "Назад"
+    }
+  },
+  "nav": {
+    "home": "Начало",
+    "history": "История",
+    "profile": "Профил"
   },
   "welcome": {
-    "tagline": "",
-    "tagline_highlight": "",
-    "supporting": "",
-    "cta_get_started": "",
-    "cta_sign_in_prefix": "",
-    "cta_sign_in": "",
-    "trust_line": ""
+    "wordmark": "Daily Challenges",
+    "tagline_prefix": "Единственото приложение за предизвикателства, което",
+    "tagline_highlight": "наистина учи",
+    "tagline_suffix": "от теб.",
+    "supporting": "Едно малко нещо на ден. Съобразено с времето, което имаш.",
+    "cta_get_started": "Започни сега",
+    "cta_sign_in_prefix": "Вече имам акаунт",
+    "cta_sign_in": "Влез",
+    "trust_line": "Без реклами · Без проследяване · 30 сек настройка"
   },
   "auth": {
-    "login_title": "",
-    "login_subtitle": "",
-    "register_title": "",
-    "register_subtitle": "",
-    "email": "",
-    "password": "",
-    "confirm_password": "",
-    "name": "",
-    "forgot_password": "",
-    "log_in": "",
-    "create_account": "",
-    "or": "",
-    "continue_with_apple": "",
-    "continue_with_google": "",
-    "no_account_prefix": "",
-    "no_account_cta": "",
-    "have_account_prefix": "",
-    "have_account_cta": "",
-    "privacy_note": "",
+    "login_title": "Добре дошъл отново",
+    "login_subtitle": "Продължи от където спря.",
+    "register_title": "Създай акаунт",
+    "register_subtitle": "Едно малко нещо на ден. Отнема 30 секунди.",
+    "email": "Имейл",
+    "password": "Парола",
+    "confirm_password": "Потвърди паролата",
+    "name": "Име",
+    "forgot_password": "Забравена парола?",
+    "log_in": "Влез",
+    "create_account": "Създай акаунт",
+    "or": "или",
+    "continue_with_apple": "Продължи с Apple",
+    "continue_with_google": "Продължи с Google",
+    "no_account_prefix": "Нов тук?",
+    "no_account_cta": "Създай акаунт",
+    "have_account_prefix": "Вече имаш акаунт?",
+    "have_account_cta": "Влез",
+    "privacy_note_prefix": "Продължавайки, се съгласяваш с нашите ",
+    "privacy_note_terms": "Условия",
+    "privacy_note_middle": " и ",
+    "privacy_note_privacy": "Поверителност",
+    "privacy_note_suffix": ". Никога не продаваме твоите данни и не ти изпращаме маркетингови съобщения.",
+    "confirm_email_title": "Провери имейла си",
+    "confirm_email_body": "Потвърди адреса си, след което влез.",
+    "fields": {
+      "name": "Име"
+    },
+    "placeholders": {
+      "name": "Твоето име",
+      "email": "ти@пример.com",
+      "password_min": "Поне 6 символа",
+      "confirm_password": "Въведи я отново"
+    },
+    "a11y": {
+      "password_show": "Покажи паролата",
+      "password_hide": "Скрий паролата"
+    },
     "errors": {
-      "email_invalid": "",
-      "password_too_short": "",
-      "passwords_dont_match": "",
-      "name_required": ""
+      "email_invalid": "Въведи валиден имейл",
+      "password_too_short": "Паролата трябва да е поне 6 символа",
+      "passwords_dont_match": "Паролите не съвпадат",
+      "name_required": "Моля въведи името си",
+      "sign_in_failed_title": "Неуспешно влизане",
+      "sign_up_failed_title": "Неуспешна регистрация"
     }
   },
   "onboarding": {
-    "title": "",
-    "step": "",
-    "eyebrow": "",
-    "subhead": "",
-    "helper_select_one": "",
-    "helper_selected_count": "",
+    "title": "Какво искаш да подобриш?",
+    "step_eyebrow": "Стъпка {{step}} · Фокус",
+    "subhead": "Избери всичко, което те касае. Ще съобразим предизвикателствата с тях.",
+    "helper_select_one": "Избери поне едно, за да продължиш",
+    "helper_selected_count_one": "{{count}} избран · Можеш да промениш това по-късно",
+    "helper_selected_count_other": "{{count}} избрани · Можеш да промениш това по-късно",
     "goals": {
-      "health": "",
-      "health_desc": "",
-      "mental": "",
-      "mental_desc": "",
-      "productivity": "",
-      "productivity_desc": "",
-      "social": "",
-      "social_desc": "",
-      "finance": "",
-      "finance_desc": "",
-      "growth": "",
-      "growth_desc": ""
+      "health": "Физическо здраве",
+      "health_desc": "Движение, сън, енергия",
+      "mental": "Ментално здраве",
+      "mental_desc": "Спокойствие, фокус, стрес",
+      "productivity": "Продуктивност",
+      "productivity_desc": "Свърши задачите",
+      "social": "Социален живот",
+      "social_desc": "Отношения, връзки",
+      "finance": "Финанси",
+      "finance_desc": "Навици с пари",
+      "growth": "Личностно развитие",
+      "growth_desc": "Любопитство, учене"
     },
     "errors": {
       "goals_required": "Избери поне една област, за да продължиш.",
@@ -74,18 +105,18 @@
   },
   "home": {
     "greeting": "Добро утро, {{name}}",
-    "greeting_morning": "",
-    "greeting_afternoon": "",
-    "greeting_evening": "",
     "streak_count_one": "{{count}} ден",
     "streak_count_other": "{{count}} дни",
     "streak_label": "поред",
     "main_challenge": "Предизвикателство за днес",
     "mark_done": "Маркирай за изпълнено",
-    "completed_headline": "",
-    "completed_subline": "",
-    "points_earned": "",
-    "feedback_question": "",
+    "completed_headline": "Готово. Продължавай.",
+    "completed_subline": "Това е предизвикателство номер {{count}} подред.",
+    "points_earned": "точки спечелени",
+    "day_streak_label": "дни поред",
+    "points_suffix": "т.",
+    "feedback_question": "Как беше?",
+    "feedback_save_error": "Обратната връзка не беше запазена. Натисни за повторен опит.",
     "challenge_me_button": "Предизвикай ме!",
     "challenge_me_hook": "Готов ли си за днешното предизвикателство?",
     "challenge_me_subline": "Базирано на твоите цели и история",
@@ -102,10 +133,10 @@
       "not_applicable": "Не е приложимо"
     },
     "meta": {
-      "minutes": "",
-      "easy": "",
-      "medium": "",
-      "hard": ""
+      "minutes": "{{count}} мин",
+      "easy": "Лесно",
+      "medium": "Средно",
+      "hard": "Трудно"
     }
   },
   "history": {
@@ -119,6 +150,10 @@
     "legend_done": "Изпълнено",
     "legend_today": "Днес",
     "legend_skipped": "Пропуснато",
+    "a11y": {
+      "prev_month": "Предишен месец",
+      "next_month": "Следващ месец"
+    },
     "modal": {
       "close": "Затвори",
       "status": {
@@ -143,7 +178,17 @@
     "language": "Език",
     "plan": "План",
     "subscription": "Абонамент",
-    "free_upgrade": "Безплатен · Надгради"
+    "free_upgrade": "Безплатен · Надгради",
+    "goals_selected_one": "{{count}} избрана",
+    "goals_selected_other": "{{count}} избрани",
+    "language_modal": {
+      "title": "Избери език",
+      "close": "Затвори",
+      "error": "Грешка при запазване. Опитай пак."
+    },
+    "a11y": {
+      "settings": "Настройки"
+    }
   },
   "categories": {
     "health": "Здраве",
@@ -151,10 +196,5 @@
     "productivity": "Продуктивност",
     "social": "Социално",
     "finance": "Финанси"
-  },
-  "tabs": {
-    "home": "",
-    "history": "",
-    "profile": ""
   }
 }

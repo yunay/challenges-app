@@ -378,10 +378,6 @@ function categoryIcon(category: Category, color: string, size: number): JSX.Elem
   }
 }
 
-function titleCase(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 interface FeedbackButtonProps {
   label: string;
   icon: ReactElement<IconProps>;
@@ -542,7 +538,7 @@ const CompletedCard = ({ streak, points, feedback, setFeedback, feedbackError, t
           lineHeight: 26,
         }}
       >
-        Done. Keep it going.
+        {translate('home.completed_headline')}
       </Text>
       <Text
         style={{
@@ -554,7 +550,7 @@ const CompletedCard = ({ streak, points, feedback, setFeedback, feedbackError, t
           textAlign: 'center',
         }}
       >
-        That's challenge {streak} in a row.
+        {translate('home.completed_subline', { count: streak })}
       </Text>
 
       {/* Stats row: points + streak, divided by a 1px hairline */}
@@ -591,7 +587,7 @@ const CompletedCard = ({ streak, points, feedback, setFeedback, feedbackError, t
               fontFamily: FONT_BODY_SEMI,
             }}
           >
-            points earned
+            {translate('home.points_earned')}
           </Text>
         </View>
 
@@ -632,7 +628,7 @@ const CompletedCard = ({ streak, points, feedback, setFeedback, feedbackError, t
               fontFamily: FONT_BODY_SEMI,
             }}
           >
-            day streak
+            {translate('home.day_streak_label')}
           </Text>
         </View>
       </View>
@@ -656,7 +652,7 @@ const CompletedCard = ({ streak, points, feedback, setFeedback, feedbackError, t
             textAlign: 'center',
           }}
         >
-          How was it?
+          {translate('home.feedback_question')}
         </Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <FeedbackButton
@@ -1105,7 +1101,7 @@ export default function HomeScreen({
       const result = await onFeedback?.(id);
       if (result?.error) {
         setOptimisticFeedback(prev);
-        setFeedbackError("Couldn't save feedback. Tap to retry.");
+        setFeedbackError(translate('home.feedback_save_error'));
       }
     })();
   };
@@ -1249,7 +1245,7 @@ export default function HomeScreen({
                 >
                   <CategoryBadge
                     icon={categoryIcon(mainChallenge.category, mainCats.color, 13)}
-                    label={titleCase(mainChallenge.category)}
+                    label={translate(`categories.${mainChallenge.category}`)}
                     color={mainCats.color}
                     bg={mainCats.bg}
                   />
@@ -1264,7 +1260,7 @@ export default function HomeScreen({
                         fontVariant: ['tabular-nums'],
                       }}
                     >
-                      +{mainChallenge.points} pts
+                      +{mainChallenge.points} {translate('home.points_suffix')}
                     </Text>
                   </View>
                 </Animated.View>
@@ -1308,11 +1304,11 @@ export default function HomeScreen({
                   }}
                 >
                   <MetaPill icon={<ClockIcon color={t.fg3} />} t={t}>
-                    {`${mainChallenge.duration_min} min`}
+                    {translate('home.meta.minutes', { count: mainChallenge.duration_min })}
                   </MetaPill>
                   <View style={{ width: 3, height: 3, borderRadius: 99, backgroundColor: t.fg4 }} />
                   <MetaPill icon={<SparkleIcon color={t.fg3} />} t={t}>
-                    {titleCase(mainChallenge.difficulty)}
+                    {translate(`home.meta.${mainChallenge.difficulty}`)}
                   </MetaPill>
                 </Animated.View>
 
@@ -1343,9 +1339,9 @@ export default function HomeScreen({
         <View style={{ flexDirection: 'row', height: 60 }}>
           {(
             [
-              { id: 'home', label: 'Home', Icon: HomeIcon },
-              { id: 'history', label: 'History', Icon: CalIcon },
-              { id: 'profile', label: 'Profile', Icon: UserIcon },
+              { id: 'home', labelKey: 'nav.home', Icon: HomeIcon },
+              { id: 'history', labelKey: 'nav.history', Icon: CalIcon },
+              { id: 'profile', labelKey: 'nav.profile', Icon: UserIcon },
             ] as const
           ).map((tab) => {
             const sel = tab.id === active;
@@ -1371,7 +1367,7 @@ export default function HomeScreen({
                     fontFamily: sel ? FONT_BODY_SEMI : FONT_BODY_MEDIUM,
                   }}
                 >
-                  {tab.label}
+                  {translate(tab.labelKey)}
                 </Text>
               </Pressable>
             );

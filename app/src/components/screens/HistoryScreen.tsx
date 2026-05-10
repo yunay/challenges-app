@@ -330,6 +330,8 @@ interface CalendarProps {
   legendDone: string;
   legendToday: string;
   legendSkipped: string;
+  prevMonthLabel: string;
+  nextMonthLabel: string;
 }
 
 const Calendar = ({
@@ -344,6 +346,8 @@ const Calendar = ({
   legendDone,
   legendToday,
   legendSkipped,
+  prevMonthLabel,
+  nextMonthLabel,
 }: CalendarProps): JSX.Element => {
   const rows: (DayCell | null)[][] = [];
   for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
@@ -369,7 +373,7 @@ const Calendar = ({
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Previous month"
+          accessibilityLabel={prevMonthLabel}
           onPress={onPrevMonth}
           hitSlop={10}
           style={{ padding: 4 }}
@@ -389,7 +393,7 @@ const Calendar = ({
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Next month"
+          accessibilityLabel={nextMonthLabel}
           accessibilityState={{ disabled: !canGoNext }}
           disabled={!canGoNext}
           onPress={onNextMonth}
@@ -1037,6 +1041,8 @@ export default function HistoryScreen({ theme, footer }: HistoryScreenProps): JS
           legendDone={tr('history.legend_done')}
           legendToday={tr('history.legend_today')}
           legendSkipped={tr('history.legend_skipped')}
+          prevMonthLabel={tr('history.a11y.prev_month')}
+          nextMonthLabel={tr('history.a11y.next_month')}
         />
 
         {/* Last-7-days list */}

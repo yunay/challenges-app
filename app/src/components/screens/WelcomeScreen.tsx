@@ -4,6 +4,7 @@
 // Requires: react-native-svg (install via `npx expo install react-native-svg`).
 
 import { type JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View, type ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 
@@ -121,6 +122,7 @@ export default function WelcomeScreen({
   onSignIn,
 }: WelcomeScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
+  const { t: translate } = useTranslation();
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg, overflow: 'hidden' }}>
@@ -156,10 +158,10 @@ export default function WelcomeScreen({
             lineHeight: 31,
           }}
         >
-          Daily Challenges
+          {translate('welcome.wordmark')}
         </Text>
 
-        {/* Tagline — "actually learns" emphasized in accent */}
+        {/* Tagline — accent-highlighted word renders inline via three-part split */}
         <Text
           style={{
             fontFamily: FONT_DISPLAY_SEMI,
@@ -172,9 +174,9 @@ export default function WelcomeScreen({
             maxWidth: 300,
           }}
         >
-          The only challenge app that{' '}
-          <Text style={{ color: t.accent }}>actually learns</Text>{' '}
-          from you.
+          {translate('welcome.tagline_prefix')}{' '}
+          <Text style={{ color: t.accent }}>{translate('welcome.tagline_highlight')}</Text>{' '}
+          {translate('welcome.tagline_suffix')}
         </Text>
 
         {/* Supporting line */}
@@ -190,7 +192,7 @@ export default function WelcomeScreen({
             maxWidth: 280,
           }}
         >
-          One small thing a day. Designed around the time you actually have.
+          {translate('welcome.supporting')}
         </Text>
       </View>
 
@@ -237,7 +239,7 @@ export default function WelcomeScreen({
               letterSpacing: -0.08,
             }}
           >
-            Get started
+            {translate('welcome.cta_get_started')}
           </Text>
           <ArrowRightIcon size={16} color={t.onAccent} />
         </Pressable>
@@ -258,7 +260,7 @@ export default function WelcomeScreen({
               textAlign: 'center',
             }}
           >
-            I already have an account{' '}
+            {translate('welcome.cta_sign_in_prefix')}{' '}
             <Text
               style={{
                 color: t.accent,
@@ -266,7 +268,7 @@ export default function WelcomeScreen({
                 fontFamily: FONT_BODY_SEMI,
               }}
             >
-              Sign in
+              {translate('welcome.cta_sign_in')}
             </Text>
           </Text>
         </Pressable>
@@ -283,7 +285,7 @@ export default function WelcomeScreen({
             marginTop: 4,
           }}
         >
-          No ads · No tracking · 30 sec setup
+          {translate('welcome.trust_line')}
         </Text>
       </View>
     </View>

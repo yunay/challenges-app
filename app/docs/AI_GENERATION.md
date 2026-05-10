@@ -1,5 +1,14 @@
 # AI Challenge Generation — Technical Specification
 
+> **Doc status (2026-05):** Partially stale. Generation no longer runs as a
+> nightly cron — it is user-initiated via the Supabase Edge Function
+> `generate-challenge` (see `supabase/functions/generate-challenge/`). The
+> "Cron job at 02:00" architecture below is a historical sketch retained for
+> when batch regeneration is reintroduced (push-notification top-up,
+> proactive next-day prep, etc.). The model + prompt + cost sections have
+> been refreshed; the architectural narrative still needs a full rewrite,
+> tracked separately.
+
 ## Architecture
 
 ```
@@ -11,11 +20,12 @@ User stats (completion rate, streak, skipped categories)
          ↓
     Context Builder
          ↓
-  Claude API (claude-haiku-4-5-20251001)
+  OpenAI Chat Completions (gpt-4o-mini)
     system: SYSTEM_PROMPT
     user:   buildUserMessage(profile, recent, stats)
+    response_format: json_schema (strict)
          ↓
-  JSON Validator + Type Guard
+  Structured Output (shape-enforced) + defensive Type Guard
          ↓
   Database insert (challenges table)
          ↓
@@ -344,16 +354,19 @@ This instruction is injected into the `SYSTEM_PROMPT` dynamically before each AP
 
 ## Cost Model
 
-Using `claude-haiku-4-5-20251001` (~500 input + 200 output tokens per generation):
+Using `gpt-4o-mini` (~500 prompt + 200 completion tokens per generation).
+OpenAI rates as of 2025: $0.15 / 1M prompt, $0.60 / 1M completion → roughly
+$0.000195 per generation.
 
 | Active Users | Generations/Day | Est. Cost/Day | Est. Cost/Month |
 |-------------|----------------|--------------|----------------|
-| 100 | 100 | ~$0.05 | ~$1.50 |
-| 1,000 | 1,000 | ~$0.50 | ~$15 |
-| 10,000 | 10,000 | ~$5.00 | ~$150 |
-| 100,000 | 100,000 | ~$50.00 | ~$1,500 |
+| 100 | 100 | ~$0.02 | ~$0.60 |
+| 1,000 | 1,000 | ~$0.20 | ~$6 |
+| 10,000 | 10,000 | ~$1.95 | ~$60 |
+| 100,000 | 100,000 | ~$19.50 | ~$600 |
 
-**At 10,000 users the AI cost is ~€140/month** — very manageable against €4,000 MRR.
+**At 10,000 users the AI cost is ~€55/month** — well under budget.
+(Verify rates against the live OpenAI pricing page; they change.)
 
 ---
 

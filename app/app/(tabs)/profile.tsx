@@ -3,7 +3,11 @@ import { useEffect, useMemo, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import BottomTabBar, { type BottomTabId } from '@/components/BottomTabBar';
-import ProfileScreen, { type ProfileMetrics } from '@/components/screens/ProfileScreen';
+import ProfileScreen, {
+  type LanguageOption,
+  type ProfileMetrics,
+} from '@/components/screens/ProfileScreen';
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/i18n';
 import { useAuthStore } from '@/store/authStore';
 import { useChallengeStore, type UserStatsSnapshot } from '@/store/challengeStore';
 import { deriveDisplayName } from '@/utils/displayName';
@@ -30,15 +34,32 @@ function toMetrics(stats: UserStatsSnapshot | null): ProfileMetrics {
   };
 }
 
-// Display-only — there's no language picker in this task. Language switches
-// happen via app settings; this label just reflects the active i18n locale.
+// Self-referential labels — each language names itself in itself, so they
+// don't go through i18n. Kept aligned with SUPPORTED_LANGUAGES so adding a
+// new language only requires one entry here.
+const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
+  en: 'English',
+  bg: 'Български',
+};
+
+const LANGUAGE_OPTIONS: ReadonlyArray<LanguageOption> = SUPPORTED_LANGUAGES.map(
+  (code) => ({ code, label: LANGUAGE_LABELS[code] }),
+);
+
 function languageLabel(lang: string): string {
-  return lang === 'bg' ? 'Български' : 'English';
+  return (
+    LANGUAGE_LABELS[lang as SupportedLanguage] ?? LANGUAGE_LABELS.en
+  );
+}
+
+function isSupportedLanguage(code: string): code is SupportedLanguage {
+  return (SUPPORTED_LANGUAGES as readonly string[]).includes(code);
 }
 
 export default function ProfileRoute(): JSX.Element {
   const { i18n } = useTranslation();
   const user = useAuthStore((s) => s.user);
+  const setLanguage = useAuthStore((s) => s.setLanguage);
   const stats = useChallengeStore((s) => s.stats);
   const fetchStats = useChallengeStore((s) => s.fetchStats);
 
@@ -60,6 +81,14 @@ export default function ProfileRoute(): JSX.Element {
       email={user?.email ?? undefined}
       metrics={metrics}
       preferences={{ language: languageLabel(i18n.language) }}
+      languageOptions={LANGUAGE_OPTIONS}
+      currentLanguageCode={i18n.language}
+      onLanguageChange={async (code): Promise<{ ok: boolean; error?: string }> => {
+        if (!isSupportedLanguage(code)) {
+          return { ok: false, error: `Unsupported language: ${code}` };
+        }
+        return setLanguage(code);
+      }}
       footer={
         <BottomTabBar
           theme="light"

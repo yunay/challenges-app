@@ -17,7 +17,7 @@
 - Backfill script for pre-trigger users documented
 - total_challenges_seen incrementing on fetch via bump_challenges_seen RPC (migration 006)
 - longest_streak now bumped on first completion (gap branch in 002_streak_functions.sql GREATEST-guards it)
-- AI challenge generation (Claude API → claude-haiku-4-5-20251001)
+- AI challenge generation (OpenAI API → gpt-4o-mini, Structured Outputs)
 - generateForUser() with partial set cleanup
 - generation_log tracking (tokens, cost_usd)
 - testGeneration.ts script
@@ -34,16 +34,33 @@
 - get_completion_rate now includes today conditionally (today counts only when status='done'); migration 009
 - HistoryScreen wired to real data: stats from user_stats, calendar driven by challengeStore.fetchHistory(monthStart, monthEnd) with prev/next month nav, last-7-days list, and day-tap detail modal (built-in RN Modal). Locale-aware month name + weekday header.
 - Button-driven challenge generation ("Challenge me!" button) replaces cron-based generation for MVP. challengeStore.generateChallenge invokes the Edge Function; HomeScreen drives the pre-gen hero / skeleton / error / reveal states.
-- Edge Function `generate-challenge` (Deno; supabase/functions/generate-challenge) wraps the AI call. ANTHROPIC_API_KEY lives as a Supabase secret — never in the RN bundle. Idempotent against `challenges_one_main_per_day`; logs to generation_log.
+- Edge Function `generate-challenge` (Deno; supabase/functions/generate-challenge) wraps the AI call. OPENAI_API_KEY lives as a Supabase secret — never in the RN bundle. Idempotent against `challenges_one_main_per_day`; logs to generation_log with classified `error_message` tags (openai_auth, openai_rate_limit, openai_server, openai_parse, openai_schema, offline).
 - Bonus challenges removed from MVP scope (DB schema + unique index retained for future reintroduction; orphan rows cleared by migration 011).
 - First-day seed flow removed (migration 007 dropped via 010); new users generate their first challenge via the button.
 - Polished reveal UX: light haptic on tap, animated skeleton placeholder, staged fade-in (category → title → description), success haptic on completion.
 - Offline vs generic generation errors with retry button.
 - HomeScreen cold-start flicker fixed via initialFetchComplete flag (no flash of "Challenge me!" button before fetched data renders).
+- Switched AI provider from Anthropic Haiku to OpenAI gpt-4o-mini for stronger BG quality and lower cost; uses Structured Outputs for guaranteed JSON shape.
+- Registration captures user name → stored in auth.user_metadata.name → drives Home greeting via deriveDisplayName (email-prefix path is now a fallback for legacy accounts, not the primary).
+- Full i18n audit — all user-facing strings now route through i18next; en.json and bg.json key trees fully synced (150 leaf keys each, verified via structural diff).
+- Language switcher on Profile — modal-based selection, persists to user_profiles.language (server source of truth) + AsyncStorage `app.language` (device cache). Affects UI immediately and future AI generations. Default is English; no auto-detect from device locale.
+- i18n boot flow: reads AsyncStorage `app.language` first, falls back to English. expo-localization no longer drives the boot language. Server-side `user_profiles.language` is synced on every session change (`authStore.syncLanguageFromProfile`) — wins on cross-device disagreement.
 
 ### Known Issues
-- Edge Function ANTHROPIC_API_KEY must be set as a Supabase secret before prod deployment: `supabase secrets set ANTHROPIC_API_KEY=sk-ant-…` followed by `supabase functions deploy generate-challenge` (run from `app/` so the CLI picks up `supabase/config.toml`). SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY are auto-injected by the platform. The function runs with `verify_jwt = false` (set in config.toml) and validates the JWT manually inside the handler — required so CORS preflights don't get rejected before reaching the function.
-- docs/AI_GENERATION.md is partially stale — its cron description no longer applies. Generation is now user-initiated via the Edge Function. Cleanup pass on that doc tracked separately.
+- Edge Function OPENAI_API_KEY must be set as a Supabase secret before prod deployment. Recommended path (Dashboard): Edge Functions → Secrets → add OPENAI_API_KEY, then open `generate-challenge` in the editor, paste current `index.ts`, leave "Verify JWT" OFF, click Deploy. CLI alternative from `app/`: `supabase secrets set OPENAI_API_KEY=sk-…` then `supabase functions deploy generate-challenge`. SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY are auto-injected by the platform. The function runs with `verify_jwt = false` (set in config.toml) and validates the JWT manually inside the handler — required so CORS preflights don't get rejected before reaching the function. The legacy `ANTHROPIC_API_KEY` secret can be removed from the Dashboard once OpenAI is confirmed working in prod.
+- docs/AI_GENERATION.md is partially stale — its cron description no longer applies. Model + cost references were patched in the OpenAI switch; full architectural rewrite tracked separately.
+- ProfileScreen route formats `total_points` with `toLocaleString('en-US')` (e.g. "1,240"). This is intentional per the existing inline comment to preserve the original design, but means BG users see English thousands grouping (`,`) rather than the locale-native space separator. Revisit alongside any wider number-formatting audit.
+
+### Edge Function deployment (manual, Dashboard path)
+After code changes land in `supabase/functions/generate-challenge/index.ts`:
+1. Supabase Dashboard → Edge Functions → Secrets → add `OPENAI_API_KEY=sk-…` (skip if already set from a prior deploy).
+2. Edge Functions → `generate-challenge` → open the editor → paste the latest contents of `index.ts`.
+3. Confirm the "Verify JWT" toggle stays **OFF** (the handler validates the JWT itself; platform-level verification breaks CORS preflights).
+4. Click **Deploy** and wait for the green status indicator.
+5. Smoke test: trigger generation as one BG user and one EN user; check the Logs tab for errors. Confirm `generation_log` got a `status='success'` row for each.
+6. (Optional cleanup once prod is healthy) remove the legacy `ANTHROPIC_API_KEY` secret from the Dashboard.
+
+See `supabase/functions/generate-challenge/README.md` for the CLI alternative and the failure-tag taxonomy.
 
 ### Next Steps
 - Push notifications (Expo + FCM) — daily reminder if user hasn't generated today's challenge by 09:00 local.
@@ -64,7 +81,7 @@ Core differentiator: **adaptive AI** — the system learns from user feedback an
 | Mobile | React Native + Expo SDK 51+ | Single codebase for iOS + Android |
 | Backend | Node.js + Fastify | REST API |
 | Database | PostgreSQL via Supabase | Auth + DB + Storage included |
-| AI | Anthropic Claude API | `claude-haiku-4-5-20251001` for generation |
+| AI | OpenAI API | `gpt-4o-mini` via Chat Completions + Structured Outputs |
 | i18n | expo-localization + i18next | EN (primary) + BG (MVP), expandable |
 | Payments | RevenueCat | In-app subscriptions, handles iOS + Android |
 | Analytics | PostHog | Retention funnels, D1/D7/D30 tracking |
@@ -120,7 +137,7 @@ daily-challenges/
 ├── supabase/                       # Supabase Edge Functions (Deno)
 │   └── functions/
 │       └── generate-challenge/     # Client-callable AI generation (replaces cron for MVP)
-│           ├── index.ts            # Auth + Anthropic call + idempotent insert + fallback
+│           ├── index.ts            # Auth + OpenAI call (Structured Outputs) + idempotent insert + fallback
 │           └── README.md           # Deploy + secrets instructions
 ├── handoff/                        # Original web prototypes — design source of truth
 ├── docs/
@@ -252,31 +269,19 @@ daily-challenges/
 ```
 
 ### i18next setup
-```typescript
-// src/i18n/index.ts
-import i18n from 'i18next'
-import { initReactI18next } from 'react-i18next'
-import * as Localization from 'expo-localization'
-import en from './en.json'
-import bg from './bg.json'
+Boot flow (`src/i18n/index.ts`): init synchronously with English, then
+hydrate from `AsyncStorage['app.language']` in the background. `expo-localization`
+is no longer used for boot detection (left installed for potential future
+use — e.g. suggesting a language on the welcome screen).
 
-const SUPPORTED_LANGUAGES = ['en', 'bg'] as const
-export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number]
+After session restore, `authStore.syncLanguageFromProfile()` reads
+`user_profiles.language` and applies it via `i18n.changeLanguage` + writes
+the AsyncStorage cache. Server is the source of truth across devices;
+the cache only exists to avoid an English flash on cold start.
 
-const deviceLanguage = Localization.getLocales()[0]?.languageCode ?? 'en'
-const detectedLanguage = SUPPORTED_LANGUAGES.includes(deviceLanguage as SupportedLanguage)
-  ? deviceLanguage
-  : 'en'
-
-i18n.use(initReactI18next).init({
-  resources: { en: { translation: en }, bg: { translation: bg } },
-  lng: detectedLanguage,
-  fallbackLng: 'en',
-  interpolation: { escapeValue: false },
-})
-
-export default i18n
-```
+Language changes flow through `authStore.setLanguage(code)`: optimistic
+i18n + cache update, then DB write, with rollback on DB failure so the
+UI never strands ahead of the server.
 
 ## Environment & Secrets
 
@@ -287,7 +292,7 @@ export default i18n
 SUPABASE_URL=
 SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=   # backend only — never in frontend bundle
-ANTHROPIC_API_KEY=
+OPENAI_API_KEY=              # used by Edge Function + server/services/challengeGenerator.ts
 REVENUECAT_API_KEY=
 POSTHOG_API_KEY=
 ```
@@ -295,7 +300,7 @@ POSTHOG_API_KEY=
 ## Critical Business Rules
 
 ### Challenge generation
-- **User-initiated** via the "Challenge me!" button on Home — no cron in MVP. The button calls the `generate-challenge` Supabase Edge Function which holds the Anthropic key as a secret.
+- **User-initiated** via the "Challenge me!" button on Home — no cron in MVP. The button calls the `generate-challenge` Supabase Edge Function which holds the OpenAI key as a secret.
 - **1 main challenge per user per day** (bonus deferred to post-MVP). Hard-blocked by the DB unique index `challenges_one_main_per_day`; the Edge Function also short-circuits when today's row already exists.
 - **Free tier:** no regenerate. Once a challenge is generated for the day, the button disappears and the existing card is shown until day rollover.
 - **Pro tier:** regenerate behavior deferred to Phase 1 (likely UPDATE in place vs soft-delete + insert).
@@ -326,16 +331,16 @@ POSTHOG_API_KEY=
 
 1. **Before any DB schema change** — check for pending migrations
 2. **Challenge generation is critical path** — always wrap in try/catch with fallback
-3. **Never log** `SUPABASE_SERVICE_ROLE_KEY` or `ANTHROPIC_API_KEY`
+3. **Never log** `SUPABASE_SERVICE_ROLE_KEY` or `OPENAI_API_KEY`
 4. **Row Level Security is mandatory** — users must only access their own data
-5. **Anthropic API: Tier 1 — 50 req/min for Haiku.** With user-initiated generation (no cron), peak request rate is bounded by concurrent users, not a sweep. Tier 1 comfortably handles MVP load. The legacy scheduler.ts in server/services keeps the 1300ms sleep loop in case a scheduled job returns later.
+5. **OpenAI API: Tier 1 for `gpt-4o-mini` is generous** — ~500 RPM and ~200k TPM as of 2025 (verify against https://platform.openai.com/docs/guides/rate-limits before any batch run). User-initiated generation (no cron) means peak rate is bounded by concurrent users, not a sweep, so MVP load is far below the ceiling. The legacy scheduler.ts in server/services keeps the 1300ms sleep loop as a conservative safety margin if batch generation is reintroduced.
 6. **Always validate AI JSON output** before writing to DB
 7. **Push notification limit** — strictly 2/day per user; exceeding risks uninstall
 8. **i18n is non-negotiable** — never hardcode user-facing strings
 
 ## Reference Documents
 - Full product roadmap: `docs/PROJECT_PLAN.md`
-- AI generation (prompts + architecture): `docs/AI_GENERATION.md` — **partially stale**: cron description no longer applies; generation runs on-demand via the `generate-challenge` Edge Function. Prompt + difficulty rules still accurate.
+- AI generation (prompts + architecture): `docs/AI_GENERATION.md` — **partially stale**: model + cost references were patched in the OpenAI switch; cron-era architecture narrative still needs a full rewrite. Prompt + difficulty rules still accurate.
 - Database schema: `docs/DB_SCHEMA.md`
 - Competitive analysis: `docs/COMPETITIVE_ANALYSIS.md`
 

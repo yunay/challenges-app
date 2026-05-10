@@ -5,6 +5,7 @@
 // Requires: react-native-svg (install via `npx expo install react-native-svg`).
 
 import { useState, type JSX, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Pressable,
   ScrollView,
@@ -269,6 +270,7 @@ interface SocialButtonProps {
 }
 
 const SocialButton = ({ provider, t, onPress }: SocialButtonProps): JSX.Element => {
+  const { t: translate } = useTranslation();
   const isApple = provider === 'apple';
   const bg = isApple ? t.appleBg : t.googleBg;
   const fg = isApple ? t.appleFg : t.fg1;
@@ -301,7 +303,7 @@ const SocialButton = ({ provider, t, onPress }: SocialButtonProps): JSX.Element 
           letterSpacing: -0.075,
         }}
       >
-        Continue with {isApple ? 'Apple' : 'Google'}
+        {translate(isApple ? 'auth.continue_with_apple' : 'auth.continue_with_google')}
       </Text>
     </Pressable>
   );
@@ -353,23 +355,26 @@ const PrimaryAuthBtn = ({ children, disabled = false, t, onPress }: PrimaryAuthB
   </Pressable>
 );
 
-const Divider = ({ t }: { t: Theme }): JSX.Element => (
-  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 }}>
-    <View style={{ flex: 1, height: 1, backgroundColor: t.border }} />
-    <Text
-      style={{
-        fontSize: 12,
-        color: t.fg3,
-        fontWeight: '500',
-        letterSpacing: 0.48,
-        fontFamily: FONT_BODY_MEDIUM,
-      }}
-    >
-      or
-    </Text>
-    <View style={{ flex: 1, height: 1, backgroundColor: t.border }} />
-  </View>
-);
+const Divider = ({ t }: { t: Theme }): JSX.Element => {
+  const { t: translate } = useTranslation();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 }}>
+      <View style={{ flex: 1, height: 1, backgroundColor: t.border }} />
+      <Text
+        style={{
+          fontSize: 12,
+          color: t.fg3,
+          fontWeight: '500',
+          letterSpacing: 0.48,
+          fontFamily: FONT_BODY_MEDIUM,
+        }}
+      >
+        {translate('auth.or')}
+      </Text>
+      <View style={{ flex: 1, height: 1, backgroundColor: t.border }} />
+    </View>
+  );
+};
 
 interface AuthHeaderProps {
   t: Theme;
@@ -416,19 +421,22 @@ interface BackBarProps {
   onBack?: () => void;
 }
 
-const BackBar = ({ t, onBack }: BackBarProps): JSX.Element => (
-  <View style={{ paddingTop: 60, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center' }}>
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Go back"
-      onPress={onBack}
-      hitSlop={12}
-      style={{ padding: 4 }}
-    >
-      <ChevronLeftIcon color={t.fg2} />
-    </Pressable>
-  </View>
-);
+const BackBar = ({ t, onBack }: BackBarProps): JSX.Element => {
+  const { t: translate } = useTranslation();
+  return (
+    <View style={{ paddingTop: 60, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center' }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={translate('common.a11y.back')}
+        onPress={onBack}
+        hitSlop={12}
+        style={{ padding: 4 }}
+      >
+        <ChevronLeftIcon color={t.fg2} />
+      </Pressable>
+    </View>
+  );
+};
 
 interface FooterLinkProps {
   t: Theme;
@@ -490,8 +498,9 @@ export function LoginScreen({
   onGoogle,
 }: LoginScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
-  const [email, setEmail] = useState('alex@hey.com');
-  const [password, setPassword] = useState('••••••••');
+  const { t: translate } = useTranslation();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const canSubmit = email.includes('@') && password.length >= 6;
 
@@ -505,29 +514,35 @@ export function LoginScreen({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <AuthHeader t={t} title="Welcome back" subtitle="Pick up where you left off." />
+        <AuthHeader
+          t={t}
+          title={translate('auth.login_title')}
+          subtitle={translate('auth.login_subtitle')}
+        />
 
         <View style={{ gap: 14, marginBottom: 8 }}>
           <Field
-            label="Email"
+            label={translate('auth.email')}
             value={email}
             onChange={setEmail}
             type="email"
-            placeholder="you@example.com"
+            placeholder={translate('auth.placeholders.email')}
             t={t}
           />
           <Field
-            label="Password"
+            label={translate('auth.password')}
             value={password}
             onChange={setPassword}
             type="password"
             showWhenSecure={show}
-            placeholder="At least 6 characters"
+            placeholder={translate('auth.placeholders.password_min')}
             t={t}
             trailing={
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={show ? 'Hide password' : 'Show password'}
+                accessibilityLabel={translate(
+                  show ? 'auth.a11y.password_hide' : 'auth.a11y.password_show',
+                )}
                 onPress={(): void => setShow((s) => !s)}
                 hitSlop={8}
                 style={{ paddingHorizontal: 4, paddingVertical: 4 }}
@@ -549,7 +564,7 @@ export function LoginScreen({
                 paddingVertical: 6,
               }}
             >
-              Forgot password?
+              {translate('auth.forgot_password')}
             </Text>
           </Pressable>
         </View>
@@ -559,7 +574,7 @@ export function LoginScreen({
           disabled={!canSubmit}
           onPress={canSubmit ? (): void => onSubmit?.(email, password) : undefined}
         >
-          Log in
+          {translate('auth.log_in')}
         </PrimaryAuthBtn>
 
         <View style={{ marginTop: 20, marginBottom: 14 }}>
@@ -572,7 +587,12 @@ export function LoginScreen({
         </View>
       </ScrollView>
 
-      <FooterLink t={t} prefix="New here?" cta="Create an account" onPress={onSwitchToRegister} />
+      <FooterLink
+        t={t}
+        prefix={translate('auth.no_account_prefix')}
+        cta={translate('auth.no_account_cta')}
+        onPress={onSwitchToRegister}
+      />
     </View>
   );
 }
@@ -603,15 +623,23 @@ export function RegisterScreen({
   onPrivacy,
 }: RegisterScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
-  const [name, setName] = useState('Alex');
-  const [email, setEmail] = useState('alex@hey.com');
-  const [password, setPassword] = useState('••••••••');
-  const [confirm, setConfirm] = useState('••••••••');
+  const { t: translate } = useTranslation();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
 
+  const trimmedName = name.trim();
+  // Whitespace-only input triggers the inline error. Empty stays clean —
+  // the disabled CTA already telegraphs "you need to fill this in".
+  const nameError =
+    name.length > 0 && trimmedName.length === 0
+      ? translate('auth.errors.name_required')
+      : null;
   const passwordsMismatch = confirm.length > 0 && confirm !== password;
   const canSubmit =
-    name.length > 0 && email.includes('@') && password.length >= 6 && password === confirm;
+    trimmedName.length > 0 && email.includes('@') && password.length >= 6 && password === confirm;
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -623,7 +651,11 @@ export function RegisterScreen({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <AuthHeader t={t} title="Create your account" subtitle="One small thing a day. Takes 30 seconds." />
+        <AuthHeader
+          t={t}
+          title={translate('auth.register_title')}
+          subtitle={translate('auth.register_subtitle')}
+        />
 
         {/* Social-first: lowest-friction path goes above the form */}
         <View style={{ gap: 10, marginBottom: 16 }}>
@@ -637,32 +669,35 @@ export function RegisterScreen({
 
         <View style={{ gap: 12, marginBottom: 18 }}>
           <Field
-            label="Name"
+            label={translate('auth.fields.name')}
             value={name}
             onChange={setName}
-            placeholder="What should we call you?"
+            placeholder={translate('auth.placeholders.name')}
+            error={nameError}
             t={t}
           />
           <Field
-            label="Email"
+            label={translate('auth.email')}
             value={email}
             onChange={setEmail}
             type="email"
-            placeholder="you@example.com"
+            placeholder={translate('auth.placeholders.email')}
             t={t}
           />
           <Field
-            label="Password"
+            label={translate('auth.password')}
             value={password}
             onChange={setPassword}
             type="password"
             showWhenSecure={show}
-            placeholder="At least 6 characters"
+            placeholder={translate('auth.placeholders.password_min')}
             t={t}
             trailing={
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={show ? 'Hide password' : 'Show password'}
+                accessibilityLabel={translate(
+                  show ? 'auth.a11y.password_hide' : 'auth.a11y.password_show',
+                )}
                 onPress={(): void => setShow((s) => !s)}
                 hitSlop={8}
                 style={{ paddingHorizontal: 4, paddingVertical: 4 }}
@@ -672,14 +707,14 @@ export function RegisterScreen({
             }
           />
           <Field
-            label="Confirm password"
+            label={translate('auth.confirm_password')}
             value={confirm}
             onChange={setConfirm}
             type="password"
             showWhenSecure={show}
-            placeholder="Type it again"
+            placeholder={translate('auth.placeholders.confirm_password')}
             t={t}
-            error={passwordsMismatch ? "Passwords don't match" : null}
+            error={passwordsMismatch ? translate('auth.errors.passwords_dont_match') : null}
           />
         </View>
 
@@ -687,10 +722,12 @@ export function RegisterScreen({
           t={t}
           disabled={!canSubmit}
           onPress={
-            canSubmit ? (): void => onSubmit?.({ name, email, password }) : undefined
+            canSubmit
+              ? (): void => onSubmit?.({ name: trimmedName, email, password })
+              : undefined
           }
         >
-          Create account
+          {translate('auth.create_account')}
         </PrimaryAuthBtn>
 
         <Text
@@ -704,7 +741,7 @@ export function RegisterScreen({
             fontFamily: FONT_BODY,
           }}
         >
-          By continuing you agree to our{' '}
+          {translate('auth.privacy_note_prefix')}
           <Text
             onPress={onTerms}
             style={{
@@ -714,9 +751,9 @@ export function RegisterScreen({
               fontFamily: FONT_BODY_MEDIUM,
             }}
           >
-            Terms
-          </Text>{' '}
-          and{' '}
+            {translate('auth.privacy_note_terms')}
+          </Text>
+          {translate('auth.privacy_note_middle')}
           <Text
             onPress={onPrivacy}
             style={{
@@ -726,13 +763,18 @@ export function RegisterScreen({
               fontFamily: FONT_BODY_MEDIUM,
             }}
           >
-            Privacy
+            {translate('auth.privacy_note_privacy')}
           </Text>
-          . We never sell your data and won't email you for marketing.
+          {translate('auth.privacy_note_suffix')}
         </Text>
       </ScrollView>
 
-      <FooterLink t={t} prefix="Already have an account?" cta="Log in" onPress={onSwitchToLogin} />
+      <FooterLink
+        t={t}
+        prefix={translate('auth.have_account_prefix')}
+        cta={translate('auth.have_account_cta')}
+        onPress={onSwitchToLogin}
+      />
     </View>
   );
 }
