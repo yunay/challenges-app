@@ -139,7 +139,7 @@ export default function RestoreScreen({
           accessibilityState={{ disabled: pending }}
           disabled={pending}
           onPress={onRestore}
-          style={({ pressed }): ViewStyle => ({
+          style={{
             width: '100%',
             height: 52,
             borderRadius: 14,
@@ -149,14 +149,12 @@ export default function RestoreScreen({
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: 10,
-            transform: [{ scale: pressed && !pending ? 0.985 : 1 }],
-            opacity: pressed && !pending ? 0.94 : 1,
             shadowColor: pending ? 'transparent' : t.accent,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: pending ? 0 : 0.2,
             shadowRadius: 14,
             elevation: pending ? 0 : 4,
-          })}
+          }}
         >
           {pending ? (
             <ActivityIndicator color={t.fg2} />
@@ -180,7 +178,7 @@ export default function RestoreScreen({
           accessibilityState={{ disabled: pending }}
           disabled={pending}
           onPress={onContinueDeletion}
-          style={({ pressed }): ViewStyle => ({
+          style={{
             width: '100%',
             height: 52,
             borderRadius: 14,
@@ -189,8 +187,7 @@ export default function RestoreScreen({
             borderColor: t.border,
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: pressed ? 0.85 : 1,
-          })}
+          }}
         >
           <Text
             style={{

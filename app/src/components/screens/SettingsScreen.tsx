@@ -261,7 +261,7 @@ const SettingsRow = ({
       accessibilityRole="button"
       accessibilityLabel={value ? `${label}, ${value}` : label}
       onPress={onPress}
-      style={({ pressed }): ViewStyle => ({
+      style={{
         width: '100%',
         paddingVertical: 16,
         paddingHorizontal: 4,
@@ -270,8 +270,7 @@ const SettingsRow = ({
         gap: 14,
         borderBottomWidth: last ? 0 : 1,
         borderBottomColor: t.border,
-        opacity: pressed ? 0.7 : 1,
-      })}
+      }}
     >
       <View
         style={{
@@ -902,7 +901,7 @@ const GoalsModal = ({
                     accessibilityState={{ checked: isSelected, disabled: pending }}
                     disabled={pending}
                     onPress={(): void => toggle(id)}
-                    style={({ pressed }): ViewStyle => ({
+                    style={{
                       width: '100%',
                       backgroundColor: isSelected ? t.accentBg : t.surface,
                       borderWidth: 1.5,
@@ -913,8 +912,7 @@ const GoalsModal = ({
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: 14,
-                      opacity: pressed ? 0.9 : 1,
-                    })}
+                    }}
                   >
                     <View
                       style={{
@@ -997,7 +995,7 @@ const GoalsModal = ({
             accessibilityState={{ disabled: !canSave }}
             disabled={!canSave}
             onPress={handleSave}
-            style={({ pressed }): ViewStyle => ({
+            style={{
               marginTop: 4,
               paddingVertical: 14,
               paddingHorizontal: 24,
@@ -1007,8 +1005,7 @@ const GoalsModal = ({
               borderColor: canSave ? 'transparent' : t.border,
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: pressed && canSave ? 0.94 : 1,
-            })}
+            }}
           >
             <Text
               style={{
@@ -1026,11 +1023,10 @@ const GoalsModal = ({
           <Pressable
             accessibilityRole="button"
             onPress={onClose}
-            style={({ pressed }): ViewStyle => ({
+            style={{
               paddingVertical: 12,
               alignItems: 'center',
-              opacity: pressed ? 0.7 : 1,
-            })}
+            }}
           >
             <Text
               style={{
@@ -1128,7 +1124,7 @@ const LanguageModal = ({
                 accessibilityState={{ selected, disabled }}
                 disabled={disabled}
                 onPress={(): void => onPick(opt.code)}
-                style={({ pressed }): ViewStyle => ({
+                style={{
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -1138,8 +1134,8 @@ const LanguageModal = ({
                   borderWidth: 1.5,
                   borderColor: selected ? t.accent : t.border,
                   backgroundColor: selected ? t.accentBg : 'transparent',
-                  opacity: disabled && !pending ? 0.55 : pressed ? 0.85 : 1,
-                })}
+                  opacity: disabled && !pending ? 0.55 : 1,
+                }}
               >
                 <Text
                   style={{
@@ -1175,12 +1171,11 @@ const LanguageModal = ({
         <Pressable
           accessibilityRole="button"
           onPress={onClose}
-          style={({ pressed }): ViewStyle => ({
+          style={{
             marginTop: 6,
             paddingVertical: 12,
             alignItems: 'center',
-            opacity: pressed ? 0.7 : 1,
-          })}
+          }}
         >
           <Text
             style={{
@@ -1277,7 +1272,7 @@ const GenderModal = ({
                 accessibilityState={{ selected, disabled }}
                 disabled={disabled}
                 onPress={(): void => onPick(value)}
-                style={({ pressed }): ViewStyle => ({
+                style={{
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -1287,8 +1282,8 @@ const GenderModal = ({
                   borderWidth: 1.5,
                   borderColor: selected ? t.accent : t.border,
                   backgroundColor: selected ? t.accentBg : 'transparent',
-                  opacity: disabled && !pending ? 0.55 : pressed ? 0.85 : 1,
-                })}
+                  opacity: disabled && !pending ? 0.55 : 1,
+                }}
               >
                 <Text
                   style={{
@@ -1324,12 +1319,11 @@ const GenderModal = ({
         <Pressable
           accessibilityRole="button"
           onPress={onClose}
-          style={({ pressed }): ViewStyle => ({
+          style={{
             marginTop: 6,
             paddingVertical: 12,
             alignItems: 'center',
-            opacity: pressed ? 0.7 : 1,
-          })}
+          }}
         >
           <Text
             style={{
@@ -1513,7 +1507,7 @@ const DeleteAccountModal = ({
             accessibilityState={{ disabled: !canSubmit }}
             disabled={!canSubmit}
             onPress={(): void => onSubmit(password)}
-            style={({ pressed }): ViewStyle => ({
+            style={{
               marginTop: 2,
               paddingVertical: 14,
               borderRadius: 14,
@@ -1522,8 +1516,7 @@ const DeleteAccountModal = ({
               borderColor: canSubmit ? 'transparent' : t.border,
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: pressed && canSubmit ? 0.94 : 1,
-            })}
+            }}
           >
             <Text
               style={{
@@ -1542,11 +1535,10 @@ const DeleteAccountModal = ({
             accessibilityRole="button"
             disabled={pending}
             onPress={onClose}
-            style={({ pressed }): ViewStyle => ({
+            style={{
               paddingVertical: 10,
               alignItems: 'center',
-              opacity: pressed ? 0.7 : 1,
-            })}
+            }}
           >
             <Text
               style={{
@@ -1635,7 +1627,7 @@ const SignOutConfirmModal = ({
           accessibilityState={{ disabled: pending }}
           disabled={pending}
           onPress={onConfirm}
-          style={({ pressed }): ViewStyle => ({
+          style={{
             marginTop: 2,
             paddingVertical: 14,
             borderRadius: 14,
@@ -1644,8 +1636,7 @@ const SignOutConfirmModal = ({
             borderColor: pending ? t.border : 'transparent',
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: pressed && !pending ? 0.94 : 1,
-          })}
+          }}
         >
           <Text
             style={{
@@ -1664,11 +1655,10 @@ const SignOutConfirmModal = ({
           accessibilityRole="button"
           disabled={pending}
           onPress={onClose}
-          style={({ pressed }): ViewStyle => ({
+          style={{
             paddingVertical: 10,
             alignItems: 'center',
-            opacity: pressed ? 0.7 : 1,
-          })}
+          }}
         >
           <Text
             style={{

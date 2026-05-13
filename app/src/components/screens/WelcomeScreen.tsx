@@ -210,7 +210,7 @@ export default function WelcomeScreen({
         <Pressable
           accessibilityRole="button"
           onPress={onGetStarted}
-          style={({ pressed }): ViewStyle => ({
+          style={{
             width: '100%',
             paddingVertical: 17,
             paddingHorizontal: 24,
@@ -220,15 +220,13 @@ export default function WelcomeScreen({
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,
-            transform: [{ scale: pressed ? 0.985 : 1 }],
-            opacity: pressed ? 0.94 : 1,
             // Colored amber glow under the CTA — soft and wide
             shadowColor: t.ctaShadow,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 1,
             shadowRadius: 18,
             elevation: 6,
-          })}
+          }}
         >
           <Text
             style={{

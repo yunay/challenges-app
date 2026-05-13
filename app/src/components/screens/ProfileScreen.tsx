@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ---------------------------------------------------------------------------
 // Theme tokens (mirror handoff exactly — Warm Amber on Stone neutrals)
@@ -420,13 +421,14 @@ export default function ProfileScreen({
 }: ProfileScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
   const { t: translate } = useTranslation();
+  const insets = useSafeAreaInsets();
   const initials = computeInitials(name);
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 20, paddingBottom: 180 }}
+        contentContainerStyle={{ paddingTop: insets.top + 40, paddingHorizontal: 20, paddingBottom: 180 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}

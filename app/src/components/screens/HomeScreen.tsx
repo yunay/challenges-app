@@ -25,6 +25,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ---------------------------------------------------------------------------
 // Theme tokens (mirror handoff/home-screen.jsx exactly)
@@ -320,7 +321,7 @@ const PrimaryButton = ({ children, onPress, t }: PrimaryButtonProps): JSX.Elemen
   <Pressable
     accessibilityRole="button"
     onPress={onPress}
-    style={({ pressed }) => ({
+    style={{
       width: '100%',
       paddingVertical: 15,
       paddingHorizontal: 20,
@@ -330,9 +331,7 @@ const PrimaryButton = ({ children, onPress, t }: PrimaryButtonProps): JSX.Elemen
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      transform: [{ scale: pressed ? 0.98 : 1 }],
-      opacity: pressed ? 0.94 : 1,
-    })}
+    }}
   >
     <Text
       style={{
@@ -747,7 +746,7 @@ const ChallengeMeHero = ({ t, disabled, onPress }: ChallengeMeHeroProps): JSX.El
         accessibilityState={{ disabled }}
         disabled={disabled}
         onPress={onPress}
-        style={({ pressed }) => ({
+        style={{
           paddingVertical: 16,
           paddingHorizontal: 28,
           backgroundColor: t.accent,
@@ -755,9 +754,8 @@ const ChallengeMeHero = ({ t, disabled, onPress }: ChallengeMeHeroProps): JSX.El
           flexDirection: 'row',
           alignItems: 'center',
           gap: 8,
-          opacity: disabled ? 0.6 : pressed ? 0.94 : 1,
-          transform: [{ scale: pressed && !disabled ? 0.98 : 1 }],
-        })}
+          opacity: disabled ? 0.6 : 1,
+        }}
       >
         <SparkleIcon size={18} color={t.onAccent} sw={2.2} />
         <Text
@@ -925,14 +923,13 @@ const GenerationErrorCard = ({ t, error, onRetry, disabled }: GenerationErrorCar
         accessibilityState={{ disabled }}
         disabled={disabled}
         onPress={onRetry}
-        style={({ pressed }) => ({
+        style={{
           paddingVertical: 12,
           paddingHorizontal: 22,
           backgroundColor: t.accent,
           borderRadius: 10,
-          opacity: disabled ? 0.6 : pressed ? 0.94 : 1,
-          transform: [{ scale: pressed && !disabled ? 0.98 : 1 }],
-        })}
+          opacity: disabled ? 0.6 : 1,
+        }}
       >
         <Text
           style={{
@@ -1017,6 +1014,7 @@ export default function HomeScreen({
 }: HomeScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
   const { t: translate, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   // Optimistic flag covers the gap between user tap and the next fetchToday
   // returning the row with status='done'. Persistent completion is driven by
@@ -1127,7 +1125,7 @@ export default function HomeScreen({
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 20, paddingBottom: 180 }}
+        contentContainerStyle={{ paddingTop: insets.top + 40, paddingHorizontal: 20, paddingBottom: 180 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Greeting block */}

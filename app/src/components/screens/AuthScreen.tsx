@@ -278,7 +278,7 @@ const SocialButton = ({ provider, t, onPress }: SocialButtonProps): JSX.Element 
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }): ViewStyle => ({
+      style={{
         width: '100%',
         height: 50,
         borderRadius: 12,
@@ -289,9 +289,7 @@ const SocialButton = ({ provider, t, onPress }: SocialButtonProps): JSX.Element 
         alignItems: 'center',
         justifyContent: 'center',
         gap: 10,
-        opacity: pressed ? 0.92 : 1,
-        transform: [{ scale: pressed ? 0.99 : 1 }],
-      })}
+      }}
     >
       {isApple ? <AppleLogo color={t.appleFg} /> : <GoogleLogo />}
       <Text
@@ -322,7 +320,7 @@ const PrimaryAuthBtn = ({ children, disabled = false, t, onPress }: PrimaryAuthB
     accessibilityState={{ disabled }}
     disabled={disabled}
     onPress={onPress}
-    style={({ pressed }): ViewStyle => ({
+    style={{
       width: '100%',
       height: 52,
       borderRadius: 14,
@@ -331,15 +329,13 @@ const PrimaryAuthBtn = ({ children, disabled = false, t, onPress }: PrimaryAuthB
       borderColor: disabled ? t.border : 'transparent',
       alignItems: 'center',
       justifyContent: 'center',
-      transform: [{ scale: pressed && !disabled ? 0.985 : 1 }],
-      opacity: pressed && !disabled ? 0.94 : 1,
       // The accent glow under the active CTA — colored shadow, soft & wide.
       shadowColor: disabled ? 'transparent' : t.accent,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: disabled ? 0 : 0.2,
       shadowRadius: 14,
       elevation: disabled ? 0 : 4,
-    })}
+    }}
   >
     <Text
       style={{
@@ -645,7 +641,7 @@ const GenderSelector = ({
             accessibilityRole="radio"
             accessibilityState={{ selected }}
             onPress={(): void => onChange(option)}
-            style={({ pressed }): ViewStyle => ({
+            style={{
               flex: 1,
               height: 50,
               borderRadius: 12,
@@ -654,8 +650,7 @@ const GenderSelector = ({
               backgroundColor: selected ? t.accent : t.surface,
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: pressed ? 0.92 : 1,
-            })}
+            }}
           >
             <Text
               style={{

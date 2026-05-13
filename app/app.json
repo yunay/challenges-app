@@ -33,7 +33,8 @@
     "plugins": [
       "expo-router",
       "expo-localization",
-      "@sentry/react-native"
+      "@sentry/react-native",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

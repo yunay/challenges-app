@@ -332,7 +332,7 @@ const SurveyOptionRow = ({ option, selected, onToggle, t }: SurveyOptionRowProps
         accessibilityState={{ checked: selected }}
         accessibilityLabel={`${option.label}. ${option.desc}`}
         onPress={(): void => onToggle(option.id)}
-        style={({ pressed }): ViewStyle => ({
+        style={{
           width: '100%',
           backgroundColor: selected ? t.accentBg : t.surface,
           borderWidth: 1.5,
@@ -343,8 +343,7 @@ const SurveyOptionRow = ({ option, selected, onToggle, t }: SurveyOptionRowProps
           flexDirection: 'row',
           alignItems: 'center',
           gap: 14,
-          opacity: pressed ? 0.9 : 1,
-        })}
+        }}
       >
         {/* Icon container */}
         <View
@@ -587,7 +586,7 @@ export default function SurveyScreen({
           accessibilityState={{ disabled: !canContinue }}
           disabled={!canContinue}
           onPress={canContinue ? (): void => onContinue?.(selected) : undefined}
-          style={({ pressed }): ViewStyle => ({
+          style={{
             width: '100%',
             paddingVertical: 16,
             paddingHorizontal: 24,
@@ -599,9 +598,7 @@ export default function SurveyScreen({
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,
-            transform: [{ scale: pressed && canContinue ? 0.985 : 1 }],
-            opacity: pressed && canContinue ? 0.94 : 1,
-          })}
+          }}
         >
           <Text
             style={{

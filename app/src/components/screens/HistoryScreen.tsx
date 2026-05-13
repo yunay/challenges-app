@@ -18,6 +18,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   useChallengeStore,
@@ -868,6 +869,7 @@ export interface HistoryScreenProps {
 export default function HistoryScreen({ theme, footer }: HistoryScreenProps): JSX.Element {
   const { t: tr, i18n } = useTranslation();
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
+  const insets = useSafeAreaInsets();
 
   const stats = useChallengeStore((s) => s.stats);
   const history = useChallengeStore((s) => s.history);
@@ -971,7 +973,7 @@ export default function HistoryScreen({ theme, footer }: HistoryScreenProps): JS
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 20, paddingBottom: 180 }}
+        contentContainerStyle={{ paddingTop: insets.top + 40, paddingHorizontal: 20, paddingBottom: 180 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}

@@ -76,10 +76,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
         <Pressable
           accessibilityRole="button"
           onPress={this.handleReset}
-          style={({ pressed }): ViewStyle => ({
-            ...styles.button,
-            opacity: pressed ? 0.92 : 1,
-          })}
+          style={styles.button}
         >
           <Text style={styles.buttonText}>{t('errors.boundary.retry')}</Text>
         </Pressable>
