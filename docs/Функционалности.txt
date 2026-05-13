@@ -1,0 +1,20 @@
+Препоръчителен ред
+Phase 1 — Visibility (трябва преди launch):
+
+PostHog — без analytics, ще launch-неш и няма да видиш нищо. Незаменимо.
+Error boundaries + network error UX — defensive против embarrassing first impressions.
+
+Phase 2 — Retention (трябва скоро след launch):
+
+Push notifications — може да launch-неш без, но добавяш в първите 2 седмици.
+
+Phase 3 — Distribution (трябва за launch):
+
+EAS Build + TestFlight setup — техническо изискване за beta.
+Privacy Policy + ToS — legal требование.
+
+Phase 4 — Acquisition (когато си готов):
+
+Apple Developer Program enrollment
+App Store screenshots, copy
+ProductHunt prep / community outreach

@@ -2,27 +2,12 @@ import { router } from 'expo-router';
 import { useState, type JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import SurveyScreen, { type SurveyOptionId } from '@/components/screens/SurveyScreen';
+import SurveyScreen, {
+  mapGoalToDbValue,
+  type SurveyOptionId,
+} from '@/components/screens/SurveyScreen';
 import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
-
-// Survey IDs differ from the values the DB expects (and from what the AI
-// generator + bonus categorisation use). Map at the seam so the rest of the
-// app sees the canonical names.
-function mapGoalToDbValue(id: SurveyOptionId): string {
-  switch (id) {
-    case 'physical':
-      return 'health';
-    case 'finances':
-      return 'finance';
-    case 'growth':
-      return 'personal_growth';
-    case 'mental':
-    case 'productivity':
-    case 'social':
-      return id;
-  }
-}
 
 export default function OnboardingRoute(): JSX.Element {
   const { t, i18n } = useTranslation();

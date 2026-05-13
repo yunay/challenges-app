@@ -87,7 +87,7 @@ export interface SurveyOption {
 // Survey ids ↔ i18n keys aren't 1:1 — `physical` reads from `onboarding.goals.health`
 // (matches the db's `health` value, set up so a future option-list edit doesn't
 // require a translation key rename). Keep this map in sync with mapGoalToDbValue.
-const OPTION_I18N_KEY: Record<SurveyOptionId, string> = {
+export const OPTION_I18N_KEY: Record<SurveyOptionId, string> = {
   physical: 'health',
   mental: 'mental',
   productivity: 'productivity',
@@ -96,7 +96,7 @@ const OPTION_I18N_KEY: Record<SurveyOptionId, string> = {
   growth: 'growth',
 };
 
-const OPTION_ORDER: readonly SurveyOptionId[] = [
+export const OPTION_ORDER: readonly SurveyOptionId[] = [
   'physical',
   'mental',
   'productivity',
@@ -104,6 +104,42 @@ const OPTION_ORDER: readonly SurveyOptionId[] = [
   'finances',
   'growth',
 ];
+
+// Survey IDs differ from the values the DB expects (and from what the AI
+// generator + bonus categorisation use). Map at the seam so the rest of the
+// app sees the canonical names. Lives here so both onboarding and the
+// Settings screen share one source of truth.
+export function mapGoalToDbValue(id: SurveyOptionId): string {
+  switch (id) {
+    case 'physical':
+      return 'health';
+    case 'finances':
+      return 'finance';
+    case 'growth':
+      return 'personal_growth';
+    case 'mental':
+    case 'productivity':
+    case 'social':
+      return id;
+  }
+}
+
+export function mapDbValueToGoal(value: string): SurveyOptionId | null {
+  switch (value) {
+    case 'health':
+      return 'physical';
+    case 'finance':
+      return 'finances';
+    case 'personal_growth':
+      return 'growth';
+    case 'mental':
+    case 'productivity':
+    case 'social':
+      return value;
+    default:
+      return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Icons

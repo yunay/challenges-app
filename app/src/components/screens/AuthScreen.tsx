@@ -598,12 +598,110 @@ export function LoginScreen({
 }
 
 // ---------------------------------------------------------------------------
+// Gender selector — three pills, single-select. Required at registration.
+// Visual: filled accent on the selected pill, surface2 on the rest. Same
+// border-radius + height as the Field atoms so it lines up with name/email.
+// ---------------------------------------------------------------------------
+
+const GENDER_OPTIONS = ['male', 'female', 'other'] as const;
+type GenderOption = (typeof GENDER_OPTIONS)[number];
+
+interface GenderSelectorProps {
+  label: string;
+  value: GenderOption | null;
+  onChange: (v: GenderOption) => void;
+  optionLabels: Record<GenderOption, string>;
+  error?: string | null;
+  t: Theme;
+}
+
+const GenderSelector = ({
+  label,
+  value,
+  onChange,
+  optionLabels,
+  error,
+  t,
+}: GenderSelectorProps): JSX.Element => (
+  <View>
+    <Text
+      style={{
+        fontSize: 12,
+        color: t.fg2,
+        fontWeight: '600',
+        marginBottom: 6,
+        letterSpacing: 0.12,
+        fontFamily: FONT_BODY_SEMI,
+      }}
+    >
+      {label}
+    </Text>
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      {GENDER_OPTIONS.map((option) => {
+        const selected = value === option;
+        return (
+          <Pressable
+            key={option}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            onPress={(): void => onChange(option)}
+            style={({ pressed }): ViewStyle => ({
+              flex: 1,
+              height: 50,
+              borderRadius: 12,
+              borderWidth: 1.5,
+              borderColor: selected ? t.accent : error ? t.error : t.border,
+              backgroundColor: selected ? t.accent : t.surface,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: pressed ? 0.92 : 1,
+            })}
+          >
+            <Text
+              style={{
+                fontFamily: FONT_BODY_SEMI,
+                fontSize: 14,
+                fontWeight: '600',
+                color: selected ? t.onAccent : t.fg1,
+                letterSpacing: -0.075,
+              }}
+            >
+              {optionLabels[option]}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+    {error && (
+      <Text
+        style={{
+          fontSize: 12,
+          color: t.error,
+          fontWeight: '500',
+          marginTop: 5,
+          fontFamily: FONT_BODY_MEDIUM,
+        }}
+      >
+        {error}
+      </Text>
+    )}
+  </View>
+);
+
+// ---------------------------------------------------------------------------
 // Register screen
 // ---------------------------------------------------------------------------
 
+export interface RegisterFormValues {
+  name: string;
+  email: string;
+  password: string;
+  gender: GenderOption;
+}
+
 export interface RegisterScreenProps {
   theme: ThemeName;
-  onSubmit?: (data: { name: string; email: string; password: string }) => void;
+  onSubmit?: (data: RegisterFormValues) => void;
   onBack?: () => void;
   onSwitchToLogin?: () => void;
   onApple?: () => void;
@@ -629,6 +727,10 @@ export function RegisterScreen({
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
+  const [gender, setGender] = useState<GenderOption | null>(null);
+  // Inline error only paints AFTER a failed submit attempt — the disabled
+  // CTA already conveys "fill this in" until the user actually tries.
+  const [genderTouched, setGenderTouched] = useState(false);
 
   const trimmedName = name.trim();
   // Whitespace-only input triggers the inline error. Empty stays clean —
@@ -639,7 +741,16 @@ export function RegisterScreen({
       : null;
   const passwordsMismatch = confirm.length > 0 && confirm !== password;
   const canSubmit =
-    trimmedName.length > 0 && email.includes('@') && password.length >= 6 && password === confirm;
+    trimmedName.length > 0 &&
+    email.includes('@') &&
+    password.length >= 6 &&
+    password === confirm &&
+    gender !== null;
+
+  const genderError =
+    genderTouched && gender === null
+      ? translate('auth.errors.gender_required')
+      : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -674,6 +785,21 @@ export function RegisterScreen({
             onChange={setName}
             placeholder={translate('auth.placeholders.name')}
             error={nameError}
+            t={t}
+          />
+          <GenderSelector
+            label={translate('auth.fields.gender')}
+            value={gender}
+            onChange={(v): void => {
+              setGender(v);
+              setGenderTouched(true);
+            }}
+            optionLabels={{
+              male: translate('auth.gender.male'),
+              female: translate('auth.gender.female'),
+              other: translate('auth.gender.other'),
+            }}
+            error={genderError}
             t={t}
           />
           <Field
@@ -722,9 +848,14 @@ export function RegisterScreen({
           t={t}
           disabled={!canSubmit}
           onPress={
-            canSubmit
-              ? (): void => onSubmit?.({ name: trimmedName, email, password })
-              : undefined
+            canSubmit && gender !== null
+              ? (): void => onSubmit?.({ name: trimmedName, email, password, gender })
+              : (): void => {
+                  // Pressing the disabled CTA shouldn't be reachable, but if
+                  // the user manages it (assistive tech, edge cases) surface
+                  // the gender hint so they know what's blocking submit.
+                  if (gender === null) setGenderTouched(true);
+                }
           }
         >
           {translate('auth.create_account')}
@@ -793,7 +924,7 @@ export interface AuthScreenProps {
   onGoogle?: () => void;
   onSwitchMode?: () => void;
   onLoginSubmit?: (email: string, password: string) => void;
-  onRegisterSubmit?: (data: { name: string; email: string; password: string }) => void;
+  onRegisterSubmit?: (data: RegisterFormValues) => void;
   onForgotPassword?: () => void;
   onTerms?: () => void;
   onPrivacy?: () => void;

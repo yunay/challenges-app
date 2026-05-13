@@ -51,6 +51,16 @@ export interface FetchHistoryResult {
   error: string | null;
 }
 
+export interface WeekEntry {
+  date: string; // 'YYYY-MM-DD'
+  status: ChallengeStatus;
+}
+
+export interface FetchWeekResult {
+  data: WeekEntry[];
+  error: string | null;
+}
+
 export type GenerationError = 'offline' | 'generic';
 
 export type GenerateChallengeResult =
@@ -106,6 +116,12 @@ export interface ChallengeState {
   history: HistoryEntry[] | null;
   historyLoading: boolean;
 
+  // Current-week main-challenge rows for the weekly chart on Profile.
+  // Separate from `history` so the Profile and History screens don't fight
+  // over the same slice (different ranges, different lifecycles).
+  week: WeekEntry[] | null;
+  weekLoading: boolean;
+
   /**
    * Loads today's challenges for the current user and, the first time this
    * runs each day, increments user_stats.total_challenges_seen by the row
@@ -151,6 +167,15 @@ export interface ChallengeState {
   fetchHistory: (monthStart: Date, monthEnd: Date) => Promise<FetchHistoryResult>;
 
   /**
+   * Fetches main-challenge rows for the current week (Monday → Sunday in the
+   * user's local timezone). Used by ProfileScreen's weekly chart. Returns
+   * only `date` + `status` — the chart doesn't need title or category.
+   * Days without a row are absent from the result; the caller is responsible
+   * for building the 7-day skeleton and treating absent dates as 'none'.
+   */
+  fetchWeek: () => Promise<FetchWeekResult>;
+
+  /**
    * Invokes the `generate-challenge` Edge Function to produce today's main
    * challenge for the signed-in user. On success the function refreshes
    * `fetchToday` so the new row lands in the store and the UI re-renders.
@@ -178,6 +203,14 @@ function formatLocalDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+// Monday of the calendar week containing `from`, local time. JS getDay()
+// returns 0=Sunday..6=Saturday, so the offset to Monday is (getDay()+6)%7.
+function startOfWeekMonday(from: Date): Date {
+  const offset = (from.getDay() + 6) % 7;
+  const monday = new Date(from.getFullYear(), from.getMonth(), from.getDate() - offset);
+  return monday;
+}
+
 const VALID_FEEDBACK_VALUES: readonly ChallengeFeedback[] = [
   'easy',
   'great',
@@ -192,6 +225,8 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
   stats: null,
   history: null,
   historyLoading: false,
+  week: null,
+  weekLoading: false,
 
   fetchToday: async (): Promise<FetchTodayResult> => {
     try {
@@ -399,6 +434,41 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
       return { ok: false, error: 'offline' };
     } finally {
       set({ generating: false });
+    }
+  },
+
+  fetchWeek: async (): Promise<FetchWeekResult> => {
+    set({ weekLoading: true });
+    try {
+      const { data: userResp } = await supabase.auth.getUser();
+      const user = userResp.user;
+      if (!user) return { data: [], error: 'Not authenticated' };
+
+      const monday = startOfWeekMonday(new Date());
+      const sunday = new Date(
+        monday.getFullYear(),
+        monday.getMonth(),
+        monday.getDate() + 6,
+      );
+      const startStr = formatLocalDate(monday);
+      const endStr = formatLocalDate(sunday);
+
+      const { data, error } = await supabase
+        .from('challenges')
+        .select('date, status')
+        .eq('user_id', user.id)
+        .eq('is_main', true)
+        .gte('date', startStr)
+        .lte('date', endStr)
+        .order('date', { ascending: true });
+
+      if (error) return { data: [], error: error.message };
+
+      const rows = (data ?? []) as WeekEntry[];
+      set({ week: rows });
+      return { data: rows, error: null };
+    } finally {
+      set({ weekLoading: false });
     }
   },
 

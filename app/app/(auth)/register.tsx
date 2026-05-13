@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
 
 import AuthScreen from '@/components/screens/AuthScreen';
+import type { RegisterFormValues } from '@/components/screens/AuthScreen';
 import { useAuthStore } from '@/store/authStore';
 
 export default function RegisterRoute(): JSX.Element {
@@ -11,14 +12,10 @@ export default function RegisterRoute(): JSX.Element {
   const signUp = useAuthStore((s) => s.signUp);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (data: {
-    name: string;
-    email: string;
-    password: string;
-  }): Promise<void> => {
+  const handleSubmit = async (data: RegisterFormValues): Promise<void> => {
     if (submitting) return;
     setSubmitting(true);
-    const { error } = await signUp(data.email, data.password, data.name);
+    const { error } = await signUp(data.email, data.password, data.name, data.gender);
     setSubmitting(false);
 
     if (error) {

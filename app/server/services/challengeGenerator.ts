@@ -54,6 +54,7 @@ Rules:
     * rate 50–80% → EASY or MEDIUM
     * rate > 80%  → MEDIUM or HARD allowed
 - Write title and description in the user's LANGUAGE
+- When user gender is provided, use appropriate gendered language and considerate examples (in Bulgarian this matters for adjective and verb forms — "готов" vs "готова", "направил" vs "направила"). When gender is 'other' or omitted, prefer gender-neutral phrasing.
 - Consider the current season for outdoor/seasonal suggestions
 - Output ONLY valid JSON — no markdown, no explanation, no preamble
 
@@ -88,6 +89,9 @@ interface UserProfile {
   language: string;
   timezone: string;
   created_at: string;
+  // Added in migration 012. Nullable for accounts created pre-migration —
+  // the prompt skips the gender line when null.
+  gender: 'male' | 'female' | 'other' | null;
 }
 
 interface RecentChallenge {
@@ -164,6 +168,10 @@ export function buildUserMessage(
     )
     .join('\n');
 
+  // Skip the gender line entirely when null — writing "Gender: null" would
+  // poison the prompt with a literal "null" token. Mirrors the Edge Function.
+  const genderLine = profile.gender ? `\n- Gender: ${profile.gender}` : '';
+
   return `Generate today's challenge for this user:
 
 PROFILE:
@@ -171,7 +179,7 @@ PROFILE:
 - Available time per day: ${profile.daily_time_minutes} minutes
 - Experience level: ${getExperienceLevel(daysSinceJoined)} (member for ${daysSinceJoined} days)
 - Preferred challenge time: ${profile.preferred_time}
-- Language: ${profile.language}
+- Language: ${profile.language}${genderLine}
 
 RECENT PERFORMANCE (last 7 days):
 - Completion rate: ${Math.round(stats.d7_completion_rate * 100)}%
@@ -333,11 +341,14 @@ export async function generateForAllActiveUsers(): Promise<void> {
     ((existingRows ?? []) as Array<{ user_id: string }>).map((r) => r.user_id),
   );
 
-  // 2. All onboarded user_profiles, minus the skip set.
+  // 2. All onboarded user_profiles, minus the skip set. `deleted_at IS NULL`
+  //    excludes soft-deleted users in their 30-day grace window — they
+  //    shouldn't accrue new challenges while the account is pending purge.
   const { data: profiles, error: profilesErr } = await supabase
     .from('user_profiles')
     .select('id')
-    .eq('onboarding_completed', true);
+    .eq('onboarding_completed', true)
+    .is('deleted_at', null);
   if (profilesErr) {
     console.error('[Generator] Failed to fetch user_profiles:', profilesErr);
     return;

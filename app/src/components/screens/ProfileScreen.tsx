@@ -1,17 +1,16 @@
 // Daily Challenges — Profile screen (React Native port of handoff/profile-screen.jsx).
-// Avatar · 3 metrics · weekly chart (today-bar gradient + dashed) · settings list.
+// Avatar · 3 metrics · weekly chart. Preferences + Plan rows moved to /settings;
+// the cog in the header is the entry point.
 //
 // Requires: react-native-svg (install via `npx expo install react-native-svg`).
 
-import { cloneElement, useState, type JSX, type ReactElement, type ReactNode } from 'react';
+import { type JSX, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Modal,
   Pressable,
   ScrollView,
   Text,
   View,
-  type ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
@@ -58,7 +57,6 @@ type ThemeName = keyof typeof THEMES;
 type Theme = (typeof THEMES)[ThemeName];
 
 const FONT_DISPLAY = 'PlusJakartaSans_700Bold';
-const FONT_BODY = 'Inter_400Regular';
 const FONT_BODY_MEDIUM = 'Inter_500Medium';
 const FONT_BODY_SEMI = 'Inter_600SemiBold';
 
@@ -76,46 +74,6 @@ const SettingsIcon = ({ size = 18, color = 'currentColor', sw = 1.5 }: IconProps
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
     <Circle cx={12} cy={12} r={3} />
     <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </Svg>
-);
-
-const TargetIcon = ({ size = 18, color = 'currentColor', sw = 1.5 }: IconProps): JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-    <Circle cx={12} cy={12} r={10} />
-    <Circle cx={12} cy={12} r={6} />
-    <Circle cx={12} cy={12} r={2} />
-  </Svg>
-);
-
-const BellIcon = ({ size = 18, color = 'currentColor', sw = 1.5 }: IconProps): JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-    <Path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-  </Svg>
-);
-
-const GlobeIcon = ({ size = 18, color = 'currentColor', sw = 1.5 }: IconProps): JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-    <Circle cx={12} cy={12} r={10} />
-    <Path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" />
-  </Svg>
-);
-
-const CrownIcon = ({ size = 18, color = 'currentColor', sw = 1.5 }: IconProps): JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M2 19h20M3 8l4 4 5-7 5 7 4-4-2 11H5z" />
-  </Svg>
-);
-
-const ChevR = ({ size = 16, color = 'currentColor', sw = 1.5 }: IconProps): JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="m9 18 6-6-6-6" />
-  </Svg>
-);
-
-const CheckIcon = ({ size = 18, color = 'currentColor', sw = 2.5 }: IconProps): JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M20 6 9 17l-5-5" />
   </Svg>
 );
 
@@ -189,26 +147,51 @@ const Metric = ({ value, suffix, label, t }: MetricProps): JSX.Element => (
 // Weekly chart
 // ---------------------------------------------------------------------------
 
-export interface WeeklyDay {
-  label: string;
-  value: number;
-  today: boolean;
+export type WeekDayStatus = 'done' | 'skipped' | 'pending' | 'none';
+
+export interface WeekDay {
+  /** 'YYYY-MM-DD', user-local. */
+  date: string;
+  /** Locale-aware single-letter weekday label (M/T/W/T/F/S/S in EN-GB). */
+  weekday: string;
+  isToday: boolean;
+  /** Strictly before today in the user's local timezone. */
+  isPast: boolean;
+  /** 'none' means no challenge row exists for that date. */
+  status: WeekDayStatus;
 }
 
 interface WeeklyChartProps {
   t: Theme;
-  data: WeeklyDay[];
-  doneCount?: number;
+  data: WeekDay[];
 }
 
 const CHART_AREA_HEIGHT = 96;
 const CHART_BAR_MAX_HEIGHT = 84; // matches source; 12px headroom under the 96 area
 
-const WeeklyChart = ({ t, data, doneCount }: WeeklyChartProps): JSX.Element => {
+// Status → percentage of CHART_BAR_MAX_HEIGHT. Today's bar gets a minimum
+// height even when empty so the dashed outline has a box to render against.
+function barFraction(d: WeekDay): number {
+  switch (d.status) {
+    case 'done':
+      return 1.0;
+    case 'skipped':
+      return 0.3;
+    case 'pending':
+      if (d.isToday) return 0.25;
+      if (d.isPast) return 0.3;
+      return 0; // future — shouldn't happen in current-week view, defensive
+    case 'none':
+      // Today with no row → keep the dashed outline visible. Otherwise a
+      // small grey stub so the slot remains visible but de-emphasised.
+      return d.isToday ? 0.25 : 0.15;
+  }
+}
+
+const WeeklyChart = ({ t, data }: WeeklyChartProps): JSX.Element => {
   const { t: translate } = useTranslation();
-  const max = Math.max(...data.map((d) => d.value), 1);
   const total = data.length;
-  const done = doneCount ?? data.filter((d) => d.value > 0).length;
+  const done = data.filter((d) => d.status === 'done').length;
 
   return (
     <View
@@ -265,12 +248,16 @@ const WeeklyChart = ({ t, data, doneCount }: WeeklyChartProps): JSX.Element => {
           marginBottom: 8,
         }}
       >
-        {data.map((d, i) => {
-          const muted = d.value === 0;
-          const h = muted ? 4 : Math.max(Math.round((d.value / max) * CHART_BAR_MAX_HEIGHT), 8);
+        {data.map((d) => {
+          const fraction = barFraction(d);
+          const h = Math.max(Math.round(fraction * CHART_BAR_MAX_HEIGHT), fraction > 0 ? 4 : 0);
+          // 'none' (except today) renders the muted grey stub; pending-past
+          // and skipped use the solid accent treatment so the "you missed
+          // this" penalty bar reads in the brand colour.
+          const muted = d.status === 'none' && !d.isToday;
           return (
-            <View key={`${d.label}-${i}`} style={{ flex: 1, height: '100%', justifyContent: 'flex-end' }}>
-              <ChartBar height={h} muted={muted} today={d.today} t={t} />
+            <View key={d.date} style={{ flex: 1, height: '100%', justifyContent: 'flex-end' }}>
+              <ChartBar height={h} muted={muted} today={d.isToday} t={t} />
             </View>
           );
         })}
@@ -278,19 +265,19 @@ const WeeklyChart = ({ t, data, doneCount }: WeeklyChartProps): JSX.Element => {
 
       {/* Day labels */}
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        {data.map((d, i) => (
+        {data.map((d) => (
           <Text
-            key={`${d.label}-label-${i}`}
+            key={`${d.date}-label`}
             style={{
               flex: 1,
               textAlign: 'center',
               fontSize: 11,
               fontWeight: '500',
-              color: d.today ? t.accent : t.fg3,
+              color: d.isToday ? t.accent : t.fg3,
               fontFamily: FONT_BODY_MEDIUM,
             }}
           >
-            {d.label}
+            {d.weekday}
           </Text>
         ))}
       </View>
@@ -363,106 +350,6 @@ const ChartBar = ({ height, muted, today, t }: ChartBarProps): JSX.Element => {
 };
 
 // ---------------------------------------------------------------------------
-// Settings list row + section label
-// ---------------------------------------------------------------------------
-
-interface SettingsRowProps {
-  icon: ReactElement<IconProps>;
-  label: string;
-  value: string;
-  valueColor?: string;
-  last?: boolean;
-  accent?: boolean;
-  t: Theme;
-  onPress?: () => void;
-}
-
-const SettingsRow = ({
-  icon,
-  label,
-  value,
-  valueColor,
-  last = false,
-  accent = false,
-  t,
-  onPress,
-}: SettingsRowProps): JSX.Element => (
-  <Pressable
-    accessibilityRole="button"
-    accessibilityLabel={`${label}, ${value}`}
-    onPress={onPress}
-    style={({ pressed }): ViewStyle => ({
-      width: '100%',
-      paddingVertical: 16,
-      paddingHorizontal: 4,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-      borderBottomWidth: last ? 0 : 1,
-      borderBottomColor: t.border,
-      opacity: pressed ? 0.7 : 1,
-    })}
-  >
-    <View
-      style={{
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-        backgroundColor: accent ? t.accentBg : t.surface2,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      {cloneElement(icon, { color: accent ? t.accent : t.fg2, size: 17 })}
-    </View>
-    <Text
-      style={{
-        flex: 1,
-        fontSize: 15,
-        fontWeight: '500',
-        color: t.fg1,
-        fontFamily: FONT_BODY_MEDIUM,
-      }}
-    >
-      {label}
-    </Text>
-    <Text
-      style={{
-        fontSize: 13,
-        color: valueColor ?? t.fg3,
-        fontWeight: '500',
-        fontFamily: FONT_BODY_MEDIUM,
-      }}
-    >
-      {value}
-    </Text>
-    <ChevR color={t.fg4} size={16} />
-  </Pressable>
-);
-
-interface SectionLabelProps {
-  children: string;
-  t: Theme;
-}
-
-const SectionLabel = ({ children, t }: SectionLabelProps): JSX.Element => (
-  <Text
-    style={{
-      fontSize: 11,
-      color: t.fg3,
-      fontWeight: '600',
-      letterSpacing: 0.88,
-      textTransform: 'uppercase',
-      marginTop: 24,
-      marginBottom: 12,
-      fontFamily: FONT_BODY_SEMI,
-    }}
-  >
-    {children}
-  </Text>
-);
-
-// ---------------------------------------------------------------------------
 // ProfileScreen
 // ---------------------------------------------------------------------------
 
@@ -480,25 +367,6 @@ const LOADING_METRICS: ProfileMetrics = {
   completion: '—',
 };
 
-// TODO: replace with real per-day completion data once the history API exists.
-// Today the chart shows mock values purely so the layout doesn't collapse.
-const DEFAULT_WEEK: WeeklyDay[] = [
-  { label: 'M', value: 18, today: false },
-  { label: 'T', value: 25, today: false },
-  { label: 'W', value: 15, today: false },
-  { label: 'T', value: 25, today: false },
-  { label: 'F', value: 0, today: false },
-  { label: 'S', value: 30, today: false },
-  { label: 'S', value: 15, today: true },
-];
-
-export interface LanguageOption {
-  /** ISO 639-1 code stored in user_profiles.language and AsyncStorage. */
-  code: string;
-  /** Self-referential display label (e.g. "English", "Български"). */
-  label: string;
-}
-
 export interface ProfileScreenProps {
   theme: ThemeName;
   name: string;
@@ -506,31 +374,14 @@ export interface ProfileScreenProps {
   // gracefully handles the brief window before auth.user lands.
   email?: string;
   metrics?: ProfileMetrics;
-  week?: WeeklyDay[];
-  preferences?: {
-    goalsCount?: number;
-    notificationTime?: string;
-    language?: string;
-  };
-  subscriptionLabel?: string;
-  onSettings?: () => void;
-  onGoals?: () => void;
-  onNotificationTime?: () => void;
-  // Legacy tap hook — only fired when no `languageOptions` is supplied. With
-  // the modal flow wired, prefer providing `languageOptions` + `onLanguageChange`.
-  onLanguage?: () => void;
-  onSubscription?: () => void;
-  /** Options shown in the language picker modal. */
-  languageOptions?: ReadonlyArray<LanguageOption>;
-  /** Currently active language code; controls the checkmark + button styling. */
-  currentLanguageCode?: string;
   /**
-   * Called when the user picks a language from the modal. Returns ok=true to
-   * close the modal cleanly, ok=false + error to keep it open with an inline
-   * message. The component does NOT apply the change itself — the parent
-   * owns the i18n + DB write.
+   * 7 entries Monday → Sunday for the current local week. The route is
+   * responsible for building the skeleton + merging fetched rows. If absent
+   * (e.g. during the initial fetch), the chart renders an empty 7-day
+   * placeholder so the layout doesn't jump.
    */
-  onLanguageChange?: (code: string) => Promise<{ ok: boolean; error?: string }>;
+  week?: WeekDay[];
+  onSettings?: () => void;
   /** Optional bottom slot to layer a tab bar on top of the screen. */
   footer?: ReactNode;
 }
@@ -547,70 +398,29 @@ function computeInitials(name: string): string {
   );
 }
 
+// Empty 7-day placeholder used while the route's fetch is in flight. All
+// 'none', no isToday flag — the chart renders 7 muted stubs so the layout
+// doesn't jump. The route swaps this for real data once fetchWeek resolves.
+const PLACEHOLDER_WEEK: WeekDay[] = Array.from({ length: 7 }).map((_, i) => ({
+  date: `placeholder-${i}`,
+  weekday: '',
+  isToday: false,
+  isPast: false,
+  status: 'none' as const,
+}));
+
 export default function ProfileScreen({
   theme,
   name,
   email,
   metrics = LOADING_METRICS,
-  week = DEFAULT_WEEK,
-  preferences,
-  subscriptionLabel,
+  week = PLACEHOLDER_WEEK,
   onSettings,
-  onGoals,
-  onNotificationTime,
-  onLanguage,
-  onSubscription,
-  languageOptions,
-  currentLanguageCode,
-  onLanguageChange,
   footer,
 }: ProfileScreenProps): JSX.Element {
   const t: Theme = theme === 'dark' ? THEMES.dark : THEMES.light;
   const { t: translate } = useTranslation();
   const initials = computeInitials(name);
-
-  const goalsValue = translate('profile.goals_selected', {
-    count: preferences?.goalsCount ?? 3,
-  });
-  const notifValue = preferences?.notificationTime ?? '8:00';
-  const langValue = preferences?.language ?? 'English';
-  const subscriptionValue = subscriptionLabel ?? translate('profile.free_upgrade');
-
-  // Modal state lives inside the screen — purely presentational; the parent
-  // owns the actual language change via onLanguageChange.
-  const [langModalOpen, setLangModalOpen] = useState(false);
-  const [langError, setLangError] = useState<string | null>(null);
-  const [langPending, setLangPending] = useState<string | null>(null);
-
-  const hasLanguagePicker =
-    !!languageOptions && languageOptions.length > 0 && !!onLanguageChange;
-
-  const openLanguageModal = (): void => {
-    if (hasLanguagePicker) {
-      setLangError(null);
-      setLangPending(null);
-      setLangModalOpen(true);
-    } else {
-      onLanguage?.();
-    }
-  };
-
-  const handlePickLanguage = async (code: string): Promise<void> => {
-    if (!onLanguageChange || langPending) return;
-    if (code === currentLanguageCode) {
-      setLangModalOpen(false);
-      return;
-    }
-    setLangPending(code);
-    setLangError(null);
-    const result = await onLanguageChange(code);
-    setLangPending(null);
-    if (result.ok) {
-      setLangModalOpen(false);
-    } else {
-      setLangError(result.error ?? translate('profile.language_modal.error'));
-    }
-  };
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -642,7 +452,7 @@ export default function ProfileScreen({
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={translate('profile.a11y.settings')}
+            accessibilityLabel={translate('settings.cog_a11y')}
             onPress={onSettings}
             hitSlop={8}
             style={{ padding: 6 }}
@@ -725,222 +535,10 @@ export default function ProfileScreen({
           />
         </View>
 
-        {/* Weekly chart — TODO(history-api): swap mock data for real per-day completion. */}
         <WeeklyChart t={t} data={week} />
-
-        {/* Preferences section */}
-        <SectionLabel t={t}>{translate('profile.preferences')}</SectionLabel>
-        <View>
-          <SettingsRow
-            icon={<TargetIcon />}
-            label={translate('profile.goals')}
-            value={goalsValue}
-            t={t}
-            onPress={onGoals}
-          />
-          <SettingsRow
-            icon={<BellIcon />}
-            label={translate('profile.notification_time')}
-            value={notifValue}
-            t={t}
-            onPress={onNotificationTime}
-          />
-          <SettingsRow
-            icon={<GlobeIcon />}
-            label={translate('profile.language')}
-            value={langValue}
-            last
-            t={t}
-            onPress={openLanguageModal}
-          />
-        </View>
-
-        {/* Plan section */}
-        <SectionLabel t={t}>{translate('profile.plan')}</SectionLabel>
-        <View>
-          <SettingsRow
-            icon={<CrownIcon />}
-            label={translate('profile.subscription')}
-            value={subscriptionValue}
-            valueColor={t.accent}
-            accent
-            last
-            t={t}
-            onPress={onSubscription}
-          />
-        </View>
       </ScrollView>
 
       {footer}
-
-      {hasLanguagePicker && (
-        <LanguageModal
-          t={t}
-          visible={langModalOpen}
-          options={languageOptions ?? []}
-          currentCode={currentLanguageCode}
-          pendingCode={langPending}
-          error={langError}
-          title={translate('profile.language_modal.title')}
-          closeLabel={translate('profile.language_modal.close')}
-          onPick={(code): void => {
-            void handlePickLanguage(code);
-          }}
-          onClose={(): void => setLangModalOpen(false)}
-        />
-      )}
     </View>
   );
 }
-
-// ---------------------------------------------------------------------------
-// LanguageModal — list of self-referential language labels with checkmark
-// indicator. Parent owns the actual persistence; this stays presentational.
-// ---------------------------------------------------------------------------
-
-interface LanguageModalProps {
-  t: Theme;
-  visible: boolean;
-  options: ReadonlyArray<LanguageOption>;
-  currentCode: string | undefined;
-  /** Code currently being saved — disables the list and shows it as pending. */
-  pendingCode: string | null;
-  error: string | null;
-  title: string;
-  closeLabel: string;
-  onPick: (code: string) => void;
-  onClose: () => void;
-}
-
-const LanguageModal = ({
-  t,
-  visible,
-  options,
-  currentCode,
-  pendingCode,
-  error,
-  title,
-  closeLabel,
-  onPick,
-  onClose,
-}: LanguageModalProps): JSX.Element => (
-  <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-    {/* Tap outside dismisses; inner Pressable swallows taps so the card itself
-        doesn't dismiss when the user is picking an option. */}
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={closeLabel}
-      onPress={onClose}
-      style={{
-        flex: 1,
-        backgroundColor: t.overlay,
-        justifyContent: 'center',
-        paddingHorizontal: 24,
-      }}
-    >
-      <Pressable
-        onPress={(): void => {}}
-        style={{
-          backgroundColor: t.surface,
-          borderRadius: 16,
-          padding: 20,
-          borderWidth: 1,
-          borderColor: t.border,
-          gap: 12,
-        }}
-      >
-        <Text
-          accessibilityRole="header"
-          style={{
-            fontFamily: FONT_DISPLAY,
-            fontSize: 18,
-            fontWeight: '700',
-            color: t.fg1,
-            letterSpacing: -0.36,
-            marginBottom: 4,
-          }}
-        >
-          {title}
-        </Text>
-
-        <View style={{ gap: 8 }}>
-          {options.map((opt) => {
-            const selected = opt.code === currentCode;
-            const pending = pendingCode === opt.code;
-            const disabled = pendingCode !== null;
-            return (
-              <Pressable
-                key={opt.code}
-                accessibilityRole="button"
-                accessibilityState={{ selected, disabled }}
-                disabled={disabled}
-                onPress={(): void => onPick(opt.code)}
-                style={({ pressed }): ViewStyle => ({
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingVertical: 14,
-                  paddingHorizontal: 16,
-                  borderRadius: 12,
-                  borderWidth: 1.5,
-                  borderColor: selected ? t.accent : t.border,
-                  backgroundColor: selected ? t.accentBg : 'transparent',
-                  opacity: disabled && !pending ? 0.55 : pressed ? 0.85 : 1,
-                })}
-              >
-                <Text
-                  style={{
-                    fontSize: 15,
-                    fontWeight: '600',
-                    color: selected ? t.accent : t.fg1,
-                    fontFamily: FONT_BODY_SEMI,
-                  }}
-                >
-                  {opt.label}
-                </Text>
-                {selected && <CheckIcon size={18} color={t.accent} sw={2.4} />}
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {error ? (
-          <Text
-            style={{
-              fontSize: 13,
-              color: t.error,
-              fontFamily: FONT_BODY_MEDIUM,
-              fontWeight: '500',
-              textAlign: 'center',
-              marginTop: 4,
-            }}
-          >
-            {error}
-          </Text>
-        ) : null}
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={onClose}
-          style={({ pressed }): ViewStyle => ({
-            marginTop: 6,
-            paddingVertical: 12,
-            alignItems: 'center',
-            opacity: pressed ? 0.7 : 1,
-          })}
-        >
-          <Text
-            style={{
-              fontSize: 14,
-              color: t.fg2,
-              fontWeight: '600',
-              fontFamily: FONT_BODY_SEMI,
-            }}
-          >
-            {closeLabel}
-          </Text>
-        </Pressable>
-      </Pressable>
-    </Pressable>
-  </Modal>
-);

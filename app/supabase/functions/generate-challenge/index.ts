@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Edge Function: generate-challenge
 //
 // Client-callable AI generator. The OpenAI API key lives as a Supabase secret
@@ -57,6 +58,14 @@ interface UserProfile {
   language: string | null;
   timezone: string | null;
   created_at: string;
+  // Added in migration 012. Nullable for legacy accounts created before
+  // gender was collected — the prompt skips the gender line when null.
+  gender: 'male' | 'female' | 'other' | null;
+  // Added in migration 013. Non-null means the account is in the 30-day
+  // grace window — the handler refuses to generate for such users (defence
+  // in depth; the soft-delete flow signs them out, but a stale-session call
+  // shouldn't slip through).
+  deleted_at: string | null;
 }
 
 interface UserStatsRow {
@@ -163,6 +172,7 @@ Rules:
     * rate 50–80% → EASY or MEDIUM
     * rate > 80%  → MEDIUM or HARD allowed
 - Write title and description in the user's LANGUAGE
+- When user gender is provided, use appropriate gendered language and considerate examples (in Bulgarian this matters for adjective and verb forms — "готов" vs "готова", "направил" vs "направила"). When gender is 'other' or omitted, prefer gender-neutral phrasing.
 - Consider the current season for outdoor/seasonal suggestions
 - Output ONLY valid JSON — no markdown, no explanation, no preamble
 
@@ -238,6 +248,12 @@ function buildUserMessage(
   const completionRate = Math.round(((stats.d7_completion_rate ?? 0.5)) * 100);
   const language = profile.language ?? 'en';
 
+  // Skip the gender line entirely when null — writing "Gender: null" would
+  // poison the prompt (the model treats arbitrary tokens as signal). Legacy
+  // accounts that haven't picked a gender get gender-neutral output by
+  // omission, which matches the SYSTEM_PROMPT instruction.
+  const genderLine = profile.gender ? `\n- Gender: ${profile.gender}` : '';
+
   return `Generate today's challenge for this user:
 
 PROFILE:
@@ -245,7 +261,7 @@ PROFILE:
 - Available time per day: ${profile.daily_time_minutes ?? 30} minutes
 - Experience level: ${getExperienceLevel(daysSinceJoined)} (member for ${daysSinceJoined} days)
 - Preferred challenge time: ${profile.preferred_time ?? 'morning'}
-- Language: ${language}
+- Language: ${language}${genderLine}
 
 RECENT PERFORMANCE (last 7 days):
 - Completion rate: ${completionRate}%
@@ -583,6 +599,14 @@ Deno.serve(async (req) => {
   const profile = profileRes.data as UserProfile;
   const recent = (recentRes.data ?? []) as RecentChallenge[];
   const stats = (statsRes.data ?? { d7_completion_rate: 0.5, current_streak: 0 }) as UserStatsRow;
+
+  // Soft-deleted accounts shouldn't accrue new challenges during the 30-day
+  // grace window. The client-side signOut after request_account_deletion()
+  // should mean we never see one of these, but a stale session could slip
+  // through — fail closed.
+  if (profile.deleted_at !== null) {
+    return json({ ok: false, error: 'generic' }, 403);
+  }
 
   const userMessage = buildUserMessage(profile, recent, stats, today);
   const ai = await callOpenAi(openaiKey, userMessage);

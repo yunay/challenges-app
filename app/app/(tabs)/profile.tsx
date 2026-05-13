@@ -4,12 +4,16 @@ import { useTranslation } from 'react-i18next';
 
 import BottomTabBar, { type BottomTabId } from '@/components/BottomTabBar';
 import ProfileScreen, {
-  type LanguageOption,
   type ProfileMetrics,
+  type WeekDay,
+  type WeekDayStatus,
 } from '@/components/screens/ProfileScreen';
-import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/i18n';
 import { useAuthStore } from '@/store/authStore';
-import { useChallengeStore, type UserStatsSnapshot } from '@/store/challengeStore';
+import {
+  useChallengeStore,
+  type UserStatsSnapshot,
+  type WeekEntry,
+} from '@/store/challengeStore';
 import { deriveDisplayName } from '@/utils/displayName';
 
 const TAB_ROUTES: Record<BottomTabId, '/(tabs)' | '/(tabs)/history' | '/(tabs)/profile'> = {
@@ -34,34 +38,67 @@ function toMetrics(stats: UserStatsSnapshot | null): ProfileMetrics {
   };
 }
 
-// Self-referential labels — each language names itself in itself, so they
-// don't go through i18n. Kept aligned with SUPPORTED_LANGUAGES so adding a
-// new language only requires one entry here.
-const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
-  en: 'English',
-  bg: 'Български',
-};
-
-const LANGUAGE_OPTIONS: ReadonlyArray<LanguageOption> = SUPPORTED_LANGUAGES.map(
-  (code) => ({ code, label: LANGUAGE_LABELS[code] }),
-);
-
-function languageLabel(lang: string): string {
-  return (
-    LANGUAGE_LABELS[lang as SupportedLanguage] ?? LANGUAGE_LABELS.en
-  );
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
-function isSupportedLanguage(code: string): code is SupportedLanguage {
-  return (SUPPORTED_LANGUAGES as readonly string[]).includes(code);
+// Monday of the calendar week containing `from`, local time.
+function startOfWeekMonday(from: Date): Date {
+  const offset = (from.getDay() + 6) % 7;
+  return new Date(from.getFullYear(), from.getMonth(), from.getDate() - offset);
+}
+
+// Builds the 7-day Mon→Sun skeleton for the current local week and merges
+// in fetched rows. Days without a row land as status='none'. Today is
+// computed once from `now` so all 7 entries see a consistent reference.
+function buildWeekDays(
+  entries: ReadonlyArray<WeekEntry> | null,
+  locale: string,
+  now: Date,
+): WeekDay[] {
+  const monday = startOfWeekMonday(now);
+  const todayStr = formatLocalDate(now);
+  const byDate = new Map<string, WeekEntry>();
+  for (const e of entries ?? []) byDate.set(e.date, e);
+
+  const days: WeekDay[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const dateStr = formatLocalDate(d);
+    const entry = byDate.get(dateStr);
+    const status: WeekDayStatus = entry?.status ?? 'none';
+    days.push({
+      date: dateStr,
+      weekday: weekdayLetter(d, locale),
+      isToday: dateStr === todayStr,
+      isPast: dateStr < todayStr,
+      status,
+    });
+  }
+  return days;
+}
+
+// 'narrow' gives single-letter weekdays in EN-GB ('M','T','W',…) and
+// Cyrillic equivalents in BG-BG ('П','В','С',…). Some RN runtimes return
+// the long form when 'narrow' isn't in the bundled CLDR — fall back to the
+// first character of 'short' as a defensive layer.
+function weekdayLetter(date: Date, locale: string): string {
+  const narrow = date.toLocaleDateString(locale, { weekday: 'narrow' });
+  if (narrow.length <= 2) return narrow;
+  const short = date.toLocaleDateString(locale, { weekday: 'short' });
+  return short.charAt(0).toUpperCase();
 }
 
 export default function ProfileRoute(): JSX.Element {
   const { i18n } = useTranslation();
   const user = useAuthStore((s) => s.user);
-  const setLanguage = useAuthStore((s) => s.setLanguage);
   const stats = useChallengeStore((s) => s.stats);
   const fetchStats = useChallengeStore((s) => s.fetchStats);
+  const week = useChallengeStore((s) => s.week);
+  const fetchWeek = useChallengeStore((s) => s.fetchWeek);
 
   // Refresh on mount. Cheap (single-row SELECT) and ensures the user sees
   // up-to-date numbers after completing a challenge on Home.
@@ -69,9 +106,19 @@ export default function ProfileRoute(): JSX.Element {
     void fetchStats().then((res) => {
       if (res.error) console.warn('[fetchStats]', res.error);
     });
-  }, [fetchStats]);
+    void fetchWeek().then((res) => {
+      if (res.error) console.warn('[fetchWeek]', res.error);
+    });
+  }, [fetchStats, fetchWeek]);
 
   const metrics = useMemo(() => toMetrics(stats), [stats]);
+  const locale = i18n.language === 'bg' ? 'bg-BG' : 'en-GB';
+  // Pass `undefined` until the first fetch lands — ProfileScreen falls back
+  // to its placeholder skeleton so the layout doesn't jump.
+  const weekDays = useMemo<WeekDay[] | undefined>(
+    () => (week === null ? undefined : buildWeekDays(week, locale, new Date())),
+    [week, locale],
+  );
   const displayName = deriveDisplayName(user?.email, user?.user_metadata);
 
   return (
@@ -80,15 +127,8 @@ export default function ProfileRoute(): JSX.Element {
       name={displayName}
       email={user?.email ?? undefined}
       metrics={metrics}
-      preferences={{ language: languageLabel(i18n.language) }}
-      languageOptions={LANGUAGE_OPTIONS}
-      currentLanguageCode={i18n.language}
-      onLanguageChange={async (code): Promise<{ ok: boolean; error?: string }> => {
-        if (!isSupportedLanguage(code)) {
-          return { ok: false, error: `Unsupported language: ${code}` };
-        }
-        return setLanguage(code);
-      }}
+      week={weekDays}
+      onSettings={(): void => router.push('/settings')}
       footer={
         <BottomTabBar
           theme="light"

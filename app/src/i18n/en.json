@@ -13,6 +13,16 @@
       "back": "Go back"
     }
   },
+  "errors": {
+    "boundary": {
+      "title": "Something went wrong",
+      "body": "Sorry about that. Please try again.",
+      "retry": "Try again"
+    }
+  },
+  "offline": {
+    "banner": "You're offline"
+  },
   "nav": {
     "home": "Home",
     "history": "History",
@@ -56,7 +66,13 @@
     "confirm_email_title": "Check your email",
     "confirm_email_body": "Confirm your address, then sign in.",
     "fields": {
-      "name": "Name"
+      "name": "Name",
+      "gender": "Gender"
+    },
+    "gender": {
+      "male": "Male",
+      "female": "Female",
+      "other": "Other"
     },
     "placeholders": {
       "name": "Your name",
@@ -73,6 +89,7 @@
       "password_too_short": "Password must be at least 6 characters",
       "passwords_dont_match": "Passwords don't match",
       "name_required": "Please enter your name",
+      "gender_required": "Please select your gender",
       "sign_in_failed_title": "Sign in failed",
       "sign_up_failed_title": "Sign up failed"
     }
@@ -189,6 +206,46 @@
     "a11y": {
       "settings": "Settings"
     }
+  },
+  "settings": {
+    "title": "Settings",
+    "back": "Back",
+    "cog_a11y": "Open settings",
+    "gender": "Gender",
+    "gender_not_set": "Not set",
+    "goals_modal": {
+      "title": "Choose your goals",
+      "save": "Save",
+      "cancel": "Cancel",
+      "empty_error": "Select at least one goal",
+      "save_error": "Couldn't save. Try again."
+    },
+    "gender_modal": {
+      "title": "Choose your gender",
+      "save_error": "Couldn't save. Try again."
+    },
+    "account": "Account",
+    "sign_out": "Sign out",
+    "sign_out_confirm": "Sign out of your account?",
+    "sign_out_confirm_button": "Sign out",
+    "delete_account": "Delete account",
+    "delete_account_modal": {
+      "title": "Delete account",
+      "warning": "Your account and all data will be marked for deletion. You have 30 days to change your mind by logging back in. After 30 days, deletion is permanent.",
+      "password_label": "Confirm your password",
+      "password_placeholder": "Password",
+      "delete_button": "Delete account",
+      "cancel": "Cancel",
+      "wrong_password": "Incorrect password",
+      "save_error": "Couldn't delete. Try again."
+    }
+  },
+  "restore": {
+    "title": "Welcome back",
+    "body": "Your account is scheduled for deletion on {{date}}. Restore it now to keep your progress.",
+    "restore_button": "Restore account",
+    "continue_deletion": "Continue with deletion",
+    "error": "Couldn't complete that. Try again."
   },
   "categories": {
     "health": "Health",
