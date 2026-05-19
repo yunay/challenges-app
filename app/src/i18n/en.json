@@ -133,6 +133,7 @@
     "day_streak_label": "day streak",
     "points_suffix": "pts",
     "feedback_question": "How was it?",
+    "feedback_change_hint": "Tap to change",
     "feedback_save_error": "Couldn't save feedback. Tap to retry.",
     "challenge_me_button": "Challenge me!",
     "challenge_me_hook": "Ready for today's challenge?",
@@ -253,5 +254,15 @@
     "productivity": "Productivity",
     "social": "Social",
     "finance": "Finance"
+  },
+  "mascot": {
+    "hero": "Phoenix mascot, friendly pose",
+    "inviting": "Phoenix mascot, welcoming",
+    "curious": "Phoenix mascot, thinking",
+    "celebrating": "Phoenix mascot, celebrating",
+    "triumphant": "Phoenix mascot, triumphant",
+    "resting": "Phoenix mascot, resting",
+    "sad": "Phoenix mascot, gentle sad",
+    "silhouette": "Phoenix mascot icon"
   }
 }

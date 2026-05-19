@@ -1,1 +1,25 @@
-1. Цели, които потребителя си поставя за годината. Например: Да посетя 3 държави, да изкача 5 върха, да науча нов език, да си намеря приятел/приятелка и т.н.
+1. Цели, които потребителя си поставя за годината. Например: Да посетя 3 държави, 
+да изкача 5 върха, да науча нов език, да си намеря приятел/приятелка и т.н.
+
+2. Buddy system.
+
+3. Daily public challenge — всеки ден едно споделено challenge ("Today everyone tried: 5min meditation"). 
+Виждаш колко хора са го направили. Не е real social, но е social proof.
+
+4. Streak leaderboard — anonymous, top 10 streaks globally. People care about ranks.
+
+5. Milestone celebrations — Day 7 → confetti animation, special copy
+
+6. Themed weeks — "Тази седмица: Stress Detox"
+
+7. User-ят не знае защо AI избра това challenge. 
+Под challenge title: micro-text "Защо това?" → expand → "Защото вчера каза, 
+че физическите challenges са лесни."
+
+8. Coach persona — name + voice. "Vera" / "Иван" / whatever. Всички copy strings, 
+all AI generations 
+пишат от името на coach-а. Effort: 2-3 часа работа в copy + prompt.
+
+9. Emotional copy overhaul — replace flat strings ("Готово. Продължавай.") 
+с rich emotional copy ("Знаех, че ще успееш. — Vera"). 
+Settings, completed cards, error states, empty states.

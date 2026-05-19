@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View, type ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 
+import Mascot from '../Mascot';
+
 // ---------------------------------------------------------------------------
 // Theme tokens (mirror handoff exactly — Warm Amber on Stone neutrals)
 // ---------------------------------------------------------------------------
@@ -22,7 +24,6 @@ const THEMES = {
     onAccent: '#FFFFFF',
     glow: 'rgba(217,119,6,0.10)',
     ctaShadow: 'rgba(217,119,6,0.22)',
-    logoStroke: '#5E3102',
   },
   dark: {
     bg: '#15161A',
@@ -33,7 +34,6 @@ const THEMES = {
     onAccent: '#15161A',
     glow: 'rgba(245,177,78,0.10)',
     ctaShadow: 'rgba(245,177,78,0.20)',
-    logoStroke: '#3A1E01',
   },
 } as const;
 
@@ -82,18 +82,6 @@ const AmbientGlow = ({ color, size = 460 }: AmbientGlowProps): JSX.Element => (
   </View>
 );
 
-interface LogoGlyphProps {
-  size?: number;
-  t: Theme;
-}
-
-const LogoGlyph = ({ size = 68, t }: LogoGlyphProps): JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-    <Path d="M16 27C16 19 11 14 6 12C9 11 13.5 12 16 16C18.5 12 23 11 26 12C21 14 16 19 16 27Z" fill={t.accent} />
-    <Path d="M16 27V16" stroke={t.logoStroke} strokeWidth={1.5} strokeLinecap="round" />
-  </Svg>
-);
-
 interface ArrowRightIconProps {
   size?: number;
   color: string;
@@ -140,8 +128,8 @@ export default function WelcomeScreen({
           zIndex: 1,
         }}
       >
-        <View style={{ marginBottom: 28 }}>
-          <LogoGlyph size={68} t={t} />
+        <View style={{ marginBottom: 28, alignItems: 'center' }}>
+          <Mascot variant="hero" size={180} state="idle" />
         </View>
 
         {/* Wordmark */}

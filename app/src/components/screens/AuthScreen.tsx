@@ -16,6 +16,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import Mascot from '../Mascot';
+
 // ---------------------------------------------------------------------------
 // Theme tokens (mirror handoff exactly — Warm Amber on Stone neutrals)
 // ---------------------------------------------------------------------------
@@ -38,7 +40,6 @@ const THEMES = {
     appleBg: '#000000',
     appleFg: '#FFFFFF',
     googleBg: '#FFFFFF',
-    logoStroke: '#5E3102',
     error: '#B5523F',
   },
   dark: {
@@ -58,7 +59,6 @@ const THEMES = {
     appleBg: '#FFFFFF',
     appleFg: '#000000',
     googleBg: '#1E1F24',
-    logoStroke: '#3A1E01',
     error: '#FC8181',
   },
 } as const;
@@ -128,18 +128,6 @@ const GoogleLogo = ({ size = 18 }: { size?: number }): JSX.Element => (
     <Path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
     <Path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.37-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
     <Path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-  </Svg>
-);
-
-interface LogoGlyphProps {
-  size?: number;
-  t: Theme;
-}
-
-const LogoGlyph = ({ size = 44, t }: LogoGlyphProps): JSX.Element => (
-  <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-    <Path d="M16 27C16 19 11 14 6 12C9 11 13.5 12 16 16C18.5 12 23 11 26 12C21 14 16 19 16 27Z" fill={t.accent} />
-    <Path d="M16 27V16" stroke={t.logoStroke} strokeWidth={1.5} strokeLinecap="round" />
   </Svg>
 );
 
@@ -381,7 +369,7 @@ interface AuthHeaderProps {
 const AuthHeader = ({ t, title, subtitle }: AuthHeaderProps): JSX.Element => (
   <View style={{ alignItems: 'center', marginBottom: 24 }}>
     <View style={{ marginBottom: 16 }}>
-      <LogoGlyph size={44} t={t} />
+      <Mascot variant="hero" size={88} state="idle" />
     </View>
     <Text
       style={{

@@ -25,7 +25,10 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import Mascot from '../Mascot';
 
 // ---------------------------------------------------------------------------
 // Theme tokens (mirror handoff/home-screen.jsx exactly)
@@ -175,6 +178,15 @@ const BanIcon = ({ size = 18, color = 'currentColor', sw = 1.5 }: IconProps): JS
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
     <Circle cx={12} cy={12} r={10} />
     <Path d="m4.93 4.93 14.14 14.14" />
+  </Svg>
+);
+
+// Trailing affordance on the collapsed feedback chip — signals the chip is
+// tappable to re-edit the selection (vs. a static badge).
+const PencilIcon = ({ size = 12, color = 'currentColor', sw = 1.8 }: IconProps): JSX.Element => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+    <Path d="m15 5 4 4" />
   </Svg>
 );
 
@@ -391,11 +403,11 @@ const FeedbackButton = ({ label, icon, selected, onPress, t }: FeedbackButtonPro
     accessibilityState={{ selected }}
     onPress={onPress}
     style={{
-      flex: 1,
+      flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: 12,
       paddingVertical: 12,
-      paddingHorizontal: 6,
+      paddingHorizontal: 14,
       backgroundColor: selected ? t.accentBg : 'transparent',
       borderWidth: 1,
       borderColor: selected ? t.accent : t.border,
@@ -406,7 +418,7 @@ const FeedbackButton = ({ label, icon, selected, onPress, t }: FeedbackButtonPro
     <Text
       style={{
         fontFamily: FONT_BODY_MEDIUM,
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: '500',
         color: selected ? t.accent : t.fg1,
       }}
@@ -435,6 +447,21 @@ interface CompletedCardProps {
 
 const CompletedCard = ({ streak, points, feedback, setFeedback, feedbackError, t }: CompletedCardProps): JSX.Element => {
   const { t: translate } = useTranslation();
+  // Feedback row collapses to a single chip once an option is picked. We keep
+  // it as local UI state instead of deriving directly from `feedback` on every
+  // render so the user can tap the chip to re-expand and change their mind.
+  // The effect below re-syncs whenever `feedback` flips back to null — covers
+  // the rollback-after-failed-save path and day rollover.
+  const [feedbackExpanded, setFeedbackExpanded] = useState(feedback === null);
+  useEffect(() => {
+    setFeedbackExpanded(feedback === null);
+  }, [feedback]);
+
+  const handleFeedbackPick = (id: FeedbackId): void => {
+    setFeedback(id);
+    setFeedbackExpanded(false);
+  };
+
   // Three coordinated entrance animations:
   //   cardIn      — 320ms fade + 6px translateY  (Material standard)
   //   medallionIn — 360ms scale 0.6 → 1.06 → 1   (overshoot for delight)
@@ -653,36 +680,84 @@ const CompletedCard = ({ streak, points, feedback, setFeedback, feedbackError, t
         >
           {translate('home.feedback_question')}
         </Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <FeedbackButton
-            label={translate('home.feedback.easy')}
-            icon={<ThumbsUpIcon />}
-            selected={feedback === 'easy'}
-            onPress={(): void => setFeedback('easy')}
-            t={t}
-          />
-          <FeedbackButton
-            label={translate('home.feedback.great')}
-            icon={<CheckIcon size={18} sw={2} />}
-            selected={feedback === 'great'}
-            onPress={(): void => setFeedback('great')}
-            t={t}
-          />
-          <FeedbackButton
-            label={translate('home.feedback.too_hard')}
-            icon={<ThumbsDownIcon />}
-            selected={feedback === 'too_hard'}
-            onPress={(): void => setFeedback('too_hard')}
-            t={t}
-          />
-          <FeedbackButton
-            label={translate('home.feedback.not_applicable')}
-            icon={<BanIcon />}
-            selected={feedback === 'not_applicable'}
-            onPress={(): void => setFeedback('not_applicable')}
-            t={t}
-          />
-        </View>
+        {feedbackExpanded || feedback === null ? (
+          <Reanimated.View
+            key="feedback-expanded"
+            entering={FadeIn.duration(180)}
+            exiting={FadeOut.duration(120)}
+            style={{ gap: 8 }}
+          >
+            <FeedbackButton
+              label={translate('home.feedback.easy')}
+              icon={<ThumbsUpIcon />}
+              selected={feedback === 'easy'}
+              onPress={(): void => handleFeedbackPick('easy')}
+              t={t}
+            />
+            <FeedbackButton
+              label={translate('home.feedback.great')}
+              icon={<CheckIcon size={18} sw={2} />}
+              selected={feedback === 'great'}
+              onPress={(): void => handleFeedbackPick('great')}
+              t={t}
+            />
+            <FeedbackButton
+              label={translate('home.feedback.too_hard')}
+              icon={<ThumbsDownIcon />}
+              selected={feedback === 'too_hard'}
+              onPress={(): void => handleFeedbackPick('too_hard')}
+              t={t}
+            />
+            <FeedbackButton
+              label={translate('home.feedback.not_applicable')}
+              icon={<BanIcon />}
+              selected={feedback === 'not_applicable'}
+              onPress={(): void => handleFeedbackPick('not_applicable')}
+              t={t}
+            />
+          </Reanimated.View>
+        ) : (
+          <Reanimated.View
+            key="feedback-collapsed"
+            entering={FadeIn.duration(180)}
+            exiting={FadeOut.duration(120)}
+            style={{ alignItems: 'center' }}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={translate(`home.feedback.${feedback}`)}
+              accessibilityHint={translate('home.feedback_change_hint')}
+              onPress={(): void => setFeedbackExpanded(true)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                backgroundColor: t.accentBg,
+                borderWidth: 1,
+                borderColor: t.accent,
+                borderRadius: 10,
+              }}
+            >
+              {feedback === 'easy' ? <ThumbsUpIcon color={t.accent} /> : null}
+              {feedback === 'great' ? <CheckIcon size={18} sw={2} color={t.accent} /> : null}
+              {feedback === 'too_hard' ? <ThumbsDownIcon color={t.accent} /> : null}
+              {feedback === 'not_applicable' ? <BanIcon color={t.accent} /> : null}
+              <Text
+                style={{
+                  fontFamily: FONT_BODY_MEDIUM,
+                  fontSize: 13,
+                  fontWeight: '500',
+                  color: t.accent,
+                }}
+              >
+                {translate(`home.feedback.${feedback}`)}
+              </Text>
+              <PencilIcon size={12} color={t.accent} />
+            </Pressable>
+          </Reanimated.View>
+        )}
         {feedbackError ? (
           <Text
             style={{
@@ -1189,6 +1264,9 @@ export default function HomeScreen({
           </View>
         ) : !mainChallenge ? (
           <View style={{ marginBottom: 24 }}>
+            <View style={{ alignItems: 'center', marginBottom: 12 }}>
+              <Mascot variant="hero" size={160} state="idle" />
+            </View>
             <ChallengeMeHero t={t} disabled={generating} onPress={handleGenerate} />
           </View>
         ) : done ? (

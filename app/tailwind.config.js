@@ -26,6 +26,13 @@ module.exports = {
         accentBorder: '#FBD08A',
         catHealth: '#B5523F',
         catMental: '#7E6FA8',
+        'phoenix-red': '#FA4C03',
+        'sunset-orange': '#FA9D06',
+        'crest-yellow': '#FDDE31',
+        'ember-deep': '#5B0807',
+        'warm-cream': '#FAFAF7',
+        linen: '#FFF6E5',
+        'muted-clay': '#8B7E76',
       },
       fontFamily: {
         display: ['PlusJakartaSans_700Bold'],
